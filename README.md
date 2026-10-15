@@ -18,7 +18,30 @@ Upon developer review and explicit approval, the engine generates an evidence-ba
 
 ---
 
-## 2. Core Capabilities & Architectural Workflow
+## 2. Technology Stack
+
+| Layer | Technology |
+|---|---|
+| **Backend Language** | Python 3.12+ |
+| **Web Framework** | FastAPI 0.110+ (served by Uvicorn ASGI) |
+| **Data Validation & Settings** | Pydantic 2 & pydantic-settings |
+| **Outbound HTTP** | httpx |
+| **Static Code Analysis** | Python standard library `ast` module (no code execution) |
+| **Version & Package Logic** | packaging (PEP 440 / PEP 503 normalization) |
+| **Database** | SQLite (zero-config, local-first storage) |
+| **AI Models** | Gemma 4 / Gemini via OpenAI-compatible APIs or local Ollama |
+| **Frontend** | React 18 + TypeScript 5.5 |
+| **Frontend Build Tooling** | Vite 5 (dev server proxies `/api` → backend on port `8000`) |
+| **UI Animation** | Framer Motion |
+| **Icons** | Lucide React |
+| **Backend Tests** | pytest & pytest-asyncio |
+| **Frontend Tests** | Vitest |
+
+> All repository analysis runs **locally on your machine**. Your source code is never uploaded to third-party services; only bounded metadata snippets are shared with the AI provider when AI planning is explicitly enabled.
+
+---
+
+## 3. Core Capabilities & Architectural Workflow
 
 ```mermaid
 flowchart LR
@@ -46,11 +69,51 @@ flowchart LR
 
 ---
 
-## 3. Quick Start & Setup
+## 4. AI Usage & Gemma 4 Integration
+
+Exit Capsule Generator follows an **AI-assisted, verification-first** philosophy: *AI proposes. The tool verifies. The developer approves.* AI is used for exactly one purpose — proposing migration targets — and every AI claim must survive independent empirical verification before it reaches your implementation plan.
+
+### 4.1 What AI Does (and Does Not Do)
+
+| Pipeline Stage | AI Involved? |
+|---|---|
+| Dependency discovery & static AST analysis | **No** — pure deterministic static analysis |
+| Explainable risk scoring (0–100) | **No** — rule-based scoring with factor contributions |
+| **Migration proposal generation** | **Yes — Gemma 4 / Gemini** |
+| Independent 10-point verification | **No** — empirical checks in ephemeral virtual environments |
+| Implementation plan & AI agent directive | **No** — assembled from verified evidence only |
+
+### 4.2 Supported AI Providers
+
+| Option | Endpoint | Example Model |
+|---|---|---|
+| Google Gemini API | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash` |
+| Together AI (OpenAI-compatible) | `https://api.together.xyz/v1` | `google/gemma-4-27b-it` |
+| Local Ollama (zero cloud exposure) | `http://localhost:11434/v1` | `gemma4:latest` |
+
+### 4.3 How the AI Adapter Works
+
+- Sends a **strictly schema-bound prompt** containing the target dependency, deterministic risk evidence, project Python constraints, and up to **10 bounded AST usage snippets** (file, line, referenced symbol, call expression, enclosing scope) — never your full source code.
+- Requires the model to respond with **strict JSON** validated against the `GemmaMigrationProposal` Pydantic schema (candidate replacement, reasons, migration steps, expected API differences, difficulty, confidence explanation, assumptions).
+- Parses responses defensively (markdown code-fence stripping, brace extraction) with **2 bounded retries** and a **30-second timeout**.
+- Validates that the configured model belongs to the **Gemma / Gemini family**; incompatible models (e.g. `gpt-4o`, `claude-3-opus`) raise an explicit `AIConfigurationError` instead of silently substituting.
+
+### 4.4 Trust & Safety Guarantees
+
+- **Optional by design**: with no API key configured, the platform runs in fully **deterministic mode** — scanning, risk scoring, verification, and capsule generation all remain 100% functional without AI.
+- **Evidence ledger**: every AI-generated claim is recorded as `ai_suggested_unverified` in the capsule until the verification engine empirically confirms it.
+- **Human-in-the-loop**: no migration plan or patch is generated without explicit developer approval at the review gate.
+- **Secret hygiene**: `GEMMA_API_KEY` is stripped from subprocess environments and redacted from logs, databases, and generated capsules.
+
+See [docs/GEMMA_MODEL_GUIDE.md](docs/GEMMA_MODEL_GUIDE.md) for complete provider configuration instructions.
+
+---
+
+## 5. Quick Start & Local Setup
 
 ### Prerequisites
 - Python 3.12 or 3.13
-- Node.js v18+ (for frontend development)
+- Node.js v18+ (for frontend development or building the UI)
 
 ### Step 1: Clone and Configure Environment
 ```bash
@@ -89,6 +152,14 @@ npm install
 npm run dev
 ```
 Open **`http://localhost:5173`** (or `http://127.0.0.1:8000` when running production build)
+
+*(Optional) Build the frontend for production so FastAPI serves the UI directly at `http://127.0.0.1:8000`:*
+```bash
+cd frontend
+npm install
+npm run build
+```
+The build output in `frontend/dist` is mounted automatically by the FastAPI backend on next server start.
 
 ---
 
@@ -168,11 +239,11 @@ Tests verify:
 - Exit Capsule schema validation and markdown generation
 - Developer review, approval gates, and 15-point implementation plan builder
 - Post-implementation unified diff and verification reporting
-- Full end-to-end workflow execution
+- Full end-to-end workflow execution.
 
 ---
 
-## 5. Walkthrough: Generating a Genuine Capsule from LinkWatch
+## 7. Walkthrough: Generating a Genuine Capsule from LinkWatch
 
 Follow these steps to analyze the organizer-provided `LinkWatch` repository (or the included sample test fixture):
 
@@ -199,7 +270,7 @@ Follow these steps to analyze the organizer-provided `LinkWatch` repository (or 
 
 ---
 
-## 6. Security & Sandboxing Architecture
+## 8. Security & Sandboxing Architecture
 
 - **No Remote Code Uploads**: Source code is analyzed locally on your machine.
 - **Subprocess Safety**: All subprocess commands are executed with `shell=False`, array-passed arguments, strict execution timeouts (default: 120s), and byte output caps (512 KB).
@@ -210,7 +281,7 @@ See [docs/SECURITY.md](docs/SECURITY.md) for complete details.
 
 ---
 
-## 7. Documentation & References
+## 9. Documentation & References
 
 - [System Architecture](docs/ARCHITECTURE.md)
 - [Capsule Schema & Evidence Ledger](docs/CAPSULE_SCHEMA.md)
@@ -222,6 +293,6 @@ See [docs/SECURITY.md](docs/SECURITY.md) for complete details.
 
 ---
 
-## 8. License
+## 10. License
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
