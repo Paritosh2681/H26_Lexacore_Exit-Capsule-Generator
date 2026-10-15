@@ -18,5 +18,6 @@ else
 fi
 
 cd backend
-echo "startup.sh: starting uvicorn on 0.0.0.0:${PORT}"
-exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port "${PORT}"
+PY_BIN="$(command -v python3 || command -v python)"
+echo "startup.sh: starting uvicorn on 0.0.0.0:${PORT} (${PY_BIN})"
+exec "${PY_BIN}" -m uvicorn app.main:app --host 0.0.0.0 --port "${PORT}"
