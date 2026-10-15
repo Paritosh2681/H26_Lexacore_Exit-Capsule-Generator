@@ -1,0 +1,13 @@
+[project]
+name = "sample-service"
+version = "0.1.0"
+dependencies = [
+    "requests==2.20.0",
+    "PyYAML==5.3.1",
+    "unused-pkg==1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]

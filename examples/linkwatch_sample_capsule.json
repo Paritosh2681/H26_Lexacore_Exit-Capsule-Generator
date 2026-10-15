@@ -1,0 +1,177 @@
+{
+  "schema_version": "1.0.0",
+  "scan_id": "scan_linkwatch_reference_001",
+  "repository_path": "organizer/LinkWatch",
+  "scan_timestamp": 1760515200.0,
+  "tool_version": "1.0.0",
+  "dependency_inventory": {
+    "declared": ["requests", "pyyaml", "urllib3"],
+    "candidate_undeclared": ["python-dateutil"],
+    "candidate_unused": ["urllib3"],
+    "optional": [],
+    "dev": ["pytest"]
+  },
+  "risk_assessments": [
+    {
+      "package_name": "requests",
+      "overall_score": 35.0,
+      "level": "MEDIUM",
+      "category": "declared",
+      "pinned_version": "==2.22.0",
+      "factors": [
+        {
+          "name": "Major Version Lag",
+          "score": 15.0,
+          "description": "Pinned version 2.22.0 is significantly behind modern 2.32+ releases.",
+          "evidence": "https://pypi.org/project/requests/"
+        },
+        {
+          "name": "Infrequent Releases (>1 year)",
+          "score": 20.0,
+          "description": "Legacy pinned release date exceeds 3 years.",
+          "evidence": "https://pypi.org/project/requests/#history"
+        }
+      ],
+      "uncertainty": "LOW - Verified via PyPI JSON API."
+    },
+    {
+      "package_name": "pyyaml",
+      "overall_score": 10.0,
+      "level": "LOW",
+      "category": "declared",
+      "pinned_version": "==5.4.1",
+      "factors": [],
+      "uncertainty": "LOW"
+    }
+  ],
+  "ast_usage_locations": [
+    {
+      "file_path": "linkwatch/monitor.py",
+      "line_number": 14,
+      "imported_module": "requests",
+      "import_alias": null,
+      "referenced_symbol": "get",
+      "call_expression": "requests.get(url, timeout=self.timeout)",
+      "enclosing_scope": "class URLWatcher::def check_health",
+      "code_snippet": "def check_health(self, url):\n    resp = requests.get(url, timeout=self.timeout)\n    return resp.status_code == 200",
+      "is_uncertain": false
+    }
+  ],
+  "ai_recommendations": [
+    {
+      "package_name": "requests",
+      "candidate_replacement": "httpx",
+      "model_name": "google/gemma-4-27b-it",
+      "proposal": {
+        "schema_version": "1.0.0",
+        "dependency": "requests",
+        "risk_summary": "Sync-only network client with pinned version lag.",
+        "candidate_replacement": "httpx",
+        "reasons": [
+          "Provides both sync and async APIs",
+          "HTTP/2 and HTTP/1.1 protocol support",
+          "Active maintenance and high community adoption"
+        ],
+        "proposed_migration_steps": [
+          "Replace requests in requirements.txt with httpx>=0.27.0",
+          "Replace import requests with import httpx in linkwatch/monitor.py",
+          "Update requests.get call sites to httpx.get",
+          "Run test suite via pytest"
+        ],
+        "expected_api_differences": [
+          {
+            "original_api": "requests.get(url, timeout=5)",
+            "replacement_api": "httpx.get(url, timeout=5.0)",
+            "notes": "Drop-in equivalent behavior for basic GET calls"
+          }
+        ],
+        "relevant_source_locations": ["linkwatch/monitor.py:14"],
+        "potential_compatibility_problems": [
+          "Default timeout in httpx is 5 seconds compared to no default timeout in requests"
+        ],
+        "suggested_tests": ["test_monitor_status_code", "test_timeout_handling"],
+        "estimated_migration_difficulty": "LOW",
+        "confidence_explanation": "Direct API similarity across observed call expressions.",
+        "assumptions_and_unknowns": ["No custom Transport adapters used in codebase."]
+      }
+    }
+  ],
+  "verification_checks": [
+    {
+      "check_name": "1. Candidate Package Existence on PyPI",
+      "status": "PASS",
+      "evidence": "Confirmed 'httpx' exists on PyPI. Latest version is 0.28.1.",
+      "elapsed_seconds": 0.24
+    },
+    {
+      "check_name": "2. Compatible Release Available",
+      "status": "PASS",
+      "evidence": "Active release 0.28.1 available and not yanked.",
+      "elapsed_seconds": 0.01
+    },
+    {
+      "check_name": "3. Python Version Constraint",
+      "status": "PASS",
+      "evidence": "Requires Python >=3.8, compatible with project runtime.",
+      "elapsed_seconds": 0.01
+    },
+    {
+      "check_name": "4. Isolated Environment Installation",
+      "status": "PASS",
+      "evidence": "Clean pip install httpx succeeded in ephemeral venv.",
+      "command_executed": "pip install httpx",
+      "elapsed_seconds": 4.12
+    },
+    {
+      "check_name": "5. Exported Symbol Inspection",
+      "status": "PASS",
+      "evidence": "Imported module httpx and verified get, post, Client, AsyncClient exports.",
+      "elapsed_seconds": 0.35
+    },
+    {
+      "check_name": "6. API Usage Compatibility Check",
+      "status": "PASS",
+      "evidence": "Observed symbol 'get' is 100% exported by httpx.",
+      "elapsed_seconds": 0.01
+    },
+    {
+      "check_name": "7. Baseline Test Suite Execution",
+      "status": "PASS",
+      "evidence": "Ran baseline tests (4 passed in 0.35s).",
+      "command_executed": "python -m pytest -v",
+      "elapsed_seconds": 0.35
+    },
+    {
+      "check_name": "10. AI Claim Reconciliation",
+      "status": "PASS",
+      "evidence": "Verified all AI assertions against empirical evidence.",
+      "elapsed_seconds": 0.01
+    }
+  ],
+  "evidence_ledger": [
+    {
+      "claim": "Dependency 'requests' is categorized as declared",
+      "classification": "observed",
+      "evidence": "Discovered in requirements.txt (pinned ==2.22.0)",
+      "timestamp": 1760515200.0
+    },
+    {
+      "claim": "Candidate 'httpx' installed cleanly in isolated sandbox",
+      "classification": "verified",
+      "evidence": "Exit code 0 from ephemeral virtual environment pip install",
+      "timestamp": 1760515205.0
+    }
+  ],
+  "rejected_ai_claims": [],
+  "unverified_claims": [],
+  "unresolved_risks": [],
+  "limitations": [
+    "Static AST analysis does not observe dynamic network responses.",
+    "Isolated venv testing confirms installation but not OS-level sandbox isolation."
+  ],
+  "approval_state": {
+    "requests": "APPROVED"
+  },
+  "confidence_score": 90.0,
+  "implementation_plan_ref": "scan_linkwatch_reference_001/requests"
+}

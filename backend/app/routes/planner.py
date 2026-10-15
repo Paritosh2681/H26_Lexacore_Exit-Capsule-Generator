@@ -1,0 +1,148 @@
+import json
+import time
+from fastapi import APIRouter, HTTPException, Response
+from app.database import get_db_connection
+from app.models.schemas import PlanRequest
+from app.planner.implementation_planner import generate_implementation_plan
+from app.capsule.generator import assemble_and_save_capsule
+
+router = APIRouter(prefix="/api/scans", tags=["Planner"])
+
+@router.post("/{scan_id}/plan")
+def create_implementation_plan(scan_id: str, req: PlanRequest):
+    """
+    Generate an evidence-backed 15-point implementation plan and AI-agent prompt.
+    Enabled after developer review.
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        
+        # 1. Fetch approval status
+        cursor.execute("""
+            SELECT decision, notes FROM approval_decisions WHERE scan_id = ? AND package_name = ?
+        """, (scan_id, req.package_name))
+        app_row = cursor.fetchone()
+        
+        # Optional check: If developer explicitly rejected, warn or disallow
+        if app_row and app_row["decision"] == "REJECTED":
+            raise HTTPException(status_code=400, detail="Cannot generate implementation plan for a rejected migration proposal.")
+
+        dev_notes = app_row["notes"] if app_row else None
+
+        # 2. Fetch AST usages
+        cursor.execute("SELECT ast_usage_json FROM dependencies WHERE scan_id = ? AND package_name = ?", (scan_id, req.package_name))
+        dep_row = cursor.fetchone()
+        if not dep_row:
+            raise HTTPException(status_code=404, detail=f"Dependency '{req.package_name}' not found")
+        ast_usages = json.loads(dep_row["ast_usage_json"]) if dep_row["ast_usage_json"] else []
+
+        # 3. Fetch AI recommendation
+        cursor.execute("SELECT recommendation_json FROM ai_recommendations WHERE scan_id = ? AND package_name = ?", (scan_id, req.package_name))
+        ai_row = cursor.fetchone()
+        ai_proposal = json.loads(ai_row["recommendation_json"]) if ai_row else None
+
+        # 4. Fetch verification runs
+        cursor.execute("SELECT * FROM verification_runs WHERE scan_id = ? AND package_name = ?", (scan_id, req.package_name))
+        ver_rows = [dict(r) for r in cursor.fetchall()]
+
+    # Generate plan
+    plan_report = generate_implementation_plan(
+        scan_id=scan_id,
+        target_package=req.package_name,
+        candidate_package=req.candidate_package,
+        ast_usages=ast_usages,
+        ai_proposal=ai_proposal,
+        verification_checks=ver_rows,
+        developer_notes=dev_notes
+    )
+
+    # Persist in DB
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO implementation_plans
+            (scan_id, package_name, plan_json, plan_md, agent_prompt, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            scan_id,
+            req.package_name,
+            json.dumps(plan_report.plan_dict),
+            plan_report.plan_markdown,
+            plan_report.ai_agent_prompt,
+            str(time.time())
+        ))
+        conn.commit()
+
+    # Re-assemble capsule to include implementation plan reference
+    assemble_and_save_capsule(scan_id)
+
+    return plan_report.to_dict()
+
+@router.get("/{scan_id}/plans")
+def list_implementation_plans(scan_id: str):
+    """Retrieve summary of all implementation plans generated for a scan."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT scan_id, package_name, candidate_package, created_at, plan_json FROM implementation_plans WHERE scan_id = ? ORDER BY id DESC
+        """, (scan_id,))
+        rows = []
+        for r in cursor.fetchall():
+            plan_obj = json.loads(r["plan_json"]) if r["plan_json"] else {}
+            rows.append({
+                "scan_id": r["scan_id"],
+                "package_name": r["package_name"],
+                "candidate_package": r["candidate_package"],
+                "created_at": r["created_at"],
+                "objective": plan_obj.get("objective", f"Migrate {r['package_name']} to {r['candidate_package']}"),
+                "files_count": len(plan_obj.get("files_likely_to_change", [])),
+                "steps_count": len(plan_obj.get("ordered_implementation_steps", [])),
+                "checks_count": len(plan_obj.get("verification_checklist", []))
+            })
+        return rows
+
+@router.get("/{scan_id}/plan/{package_name}")
+def get_implementation_plan(scan_id: str, package_name: str):
+    """Retrieve existing implementation plan and AI prompt for a package."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM implementation_plans WHERE scan_id = ? AND package_name = ?
+        """, (scan_id, package_name))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"No implementation plan found for '{package_name}'")
+
+        return {
+            "scan_id": row["scan_id"],
+            "package_name": row["package_name"],
+            "plan_data": json.loads(row["plan_json"]),
+            "plan_markdown": row["plan_md"],
+            "ai_agent_prompt": row["agent_prompt"],
+            "created_at": row["created_at"]
+        }
+
+@router.get("/{scan_id}/plan/{package_name}/download")
+def download_implementation_plan(scan_id: str, package_name: str, format: str = "md"):
+    """Download the implementation plan as Markdown or JSON."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM implementation_plans WHERE scan_id = ? AND package_name = ?
+        """, (scan_id, package_name))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"No implementation plan found for '{package_name}'")
+
+        if format == "json":
+            return Response(
+                content=row["plan_json"],
+                media_type="application/json",
+                headers={"Content-Disposition": f"attachment; filename=plan_{package_name}.json"}
+            )
+        else:
+            return Response(
+                content=row["plan_md"],
+                media_type="text/markdown",
+                headers={"Content-Disposition": f"attachment; filename=plan_{package_name}.md"}
+            )
