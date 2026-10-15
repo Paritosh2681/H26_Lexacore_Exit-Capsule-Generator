@@ -10,7 +10,7 @@
 
 ---
 
-## 1. What is Exit Capsule Generator.?
+## 1. What is Exit Capsule Generator?
 
 **Exit Capsule Generator** is a developer tool that analyzes local Python repositories, identifies dependency maintenance risks, maps dependency usage in source code via static Python Abstract Syntax Tree (AST) analysis, formulates structured migration proposals powered by **Gemma 4**, independently verifies those proposals in isolated virtual environments, and produces a tamper-evident **Dependency Exit Capsule** (`capsule.json` and `capsule.md`).
 
@@ -182,7 +182,7 @@ Tests verify:
 - Exit Capsule schema validation and markdown generation
 - Developer review, approval gates, and 15-point implementation plan builder
 - Post-implementation unified diff and verification reporting
-- Full end-to-end workflow execution
+- Full end-to-end workflow execution.
 
 ---
 
