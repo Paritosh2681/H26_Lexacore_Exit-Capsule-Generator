@@ -29,11 +29,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for local development with frontend
+# CORS: set CORS_ORIGINS="https://your-domain.com" in production.
+# Wildcard only applies in local development (no credentials sent with it).
+_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins or ["*"],
+    allow_credentials=bool(_cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -53,3 +55,9 @@ app.include_router(github_router)
 frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 if frontend_dist.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+else:
+    import logging
+    logging.warning(
+        "frontend/dist not found - the web UI will NOT be served. "
+        "Build it first: cd frontend && npm ci && npm run build"
+    )

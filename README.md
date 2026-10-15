@@ -153,6 +153,37 @@ npm run dev
 ```
 Open **`http://localhost:5173`** (or `http://127.0.0.1:8000` when running production build)
 
+### Step 4: Deployment
+
+One process serves both the API and the built UI. Start it with the included script:
+
+```bash
+bash startup.sh   # builds frontend/dist if missing, then serves on 0.0.0.0:$PORT
+```
+
+Platform requirements and configuration:
+
+| Requirement | Detail |
+|---|---|
+| Runtime image | Python 3.12 **full** image (not `slim`) — the verification engine creates ephemeral virtualenvs at request time |
+| Build step | `frontend/dist` must exist before start (script builds it if absent; `main.py` logs a warning if it is missing) |
+| Persistence | Mount a persistent disk for `exit_capsule.db`, `generated_capsules/`, and `temp_workspaces/` |
+| Scaling | **Single instance only** — scan progress is tracked in memory |
+| Outbound network | PyPI (metadata + venv installs) and `git clone` (remote scans) |
+
+Environment variables (set as platform app settings, not in `.env`):
+
+```bash
+GEMMA_API_KEY=...                  # optional; tool works deterministically without it
+GITHUB_CLIENT_ID=...               # optional; enables GitHub OAuth
+GITHUB_CLIENT_SECRET=...
+GITHUB_REDIRECT_URI=https://your-domain.com/auth/callback
+CORS_ORIGINS=https://your-domain.com   # explicit origins for production
+PORT=8000
+```
+
+Verified targets: Azure App Service (Linux, Python 3.12, startup command `bash startup.sh`), Azure Container Apps (min-replicas 1 + volume), Render/Railway/Fly.io (persistent volume), or any Docker-capable VPS. Not suitable for serverless (Functions/Lambda/Vercel/Netlify) due to runtime venv creation and filesystem writes.
+
 *(Optional) Build the frontend for production so FastAPI serves the UI directly at `http://127.0.0.1:8000`:*
 ```bash
 cd frontend
