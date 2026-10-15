@@ -22,7 +22,8 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const lines = code.split('\n');
+  const safeCode = typeof code === 'string' ? code : String(code || '');
+  const lines = safeCode.split('\n');
 
   return (
     <div style={{

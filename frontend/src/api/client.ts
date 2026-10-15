@@ -93,7 +93,10 @@ export async function createImplementationPlan(scanId: string, packageName: stri
 
 export async function getCapsule(scanId: string): Promise<CapsuleResponse> {
   const resp = await fetch(`${API_BASE}/scans/${scanId}/capsule`);
-  if (!resp.ok) throw new Error('Failed to load capsule');
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(err.detail || `Failed to load capsule (${resp.status})`);
+  }
   return resp.json();
 }
 

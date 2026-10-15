@@ -6,8 +6,17 @@ from app.config import settings
 
 def get_db_connection() -> sqlite3.Connection:
     """Get a SQLite connection with dict-like row access."""
-    db_path = Path(settings.DATABASE_PATH).resolve()
-    conn = sqlite3.connect(str(db_path))
+    db_path = Path(settings.DATABASE_PATH)
+    if not db_path.is_absolute():
+        backend_db = settings.BASE_DIR / db_path.name
+        if backend_db.exists():
+            db_path = backend_db
+        else:
+            db_path = (settings.BASE_DIR / db_path).resolve()
+    elif not db_path.exists() and (settings.BASE_DIR / db_path.name).exists():
+        db_path = settings.BASE_DIR / db_path.name
+
+    conn = sqlite3.connect(str(db_path.resolve()))
     conn.row_factory = sqlite3.Row
     return conn
 

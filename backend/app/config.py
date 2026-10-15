@@ -21,9 +21,9 @@ class Settings(BaseSettings):
 
     # Storage Paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
-    DATABASE_PATH: str = Field(default="exit_capsule.db", env="DATABASE_PATH")
-    CAPSULES_DIR: str = Field(default="generated_capsules", env="CAPSULES_DIR")
-    TEMP_WORKSPACES_DIR: str = Field(default="temp_workspaces", env="TEMP_WORKSPACES_DIR")
+    DATABASE_PATH: str = Field(default=str(Path(__file__).resolve().parent.parent / "exit_capsule.db"), env="DATABASE_PATH")
+    CAPSULES_DIR: str = Field(default=str(Path(__file__).resolve().parent.parent / "generated_capsules"), env="CAPSULES_DIR")
+    TEMP_WORKSPACES_DIR: str = Field(default=str(Path(__file__).resolve().parent.parent / "temp_workspaces"), env="TEMP_WORKSPACES_DIR")
 
     # Server Settings
     BACKEND_HOST: str = Field(default="127.0.0.1", env="BACKEND_HOST")

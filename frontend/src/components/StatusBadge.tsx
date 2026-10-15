@@ -7,7 +7,15 @@ interface StatusBadgeProps {
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'check' }) => {
-  const s = status.toUpperCase().trim();
+  const raw = status !== undefined && status !== null ? String(status) : 'UNKNOWN';
+  const s = raw.toUpperCase().trim();
+  if (!s || s === 'UNKNOWN') {
+    return (
+      <span className="badge badge-not-run">
+        <Clock size={12} /> Pending
+      </span>
+    );
+  }
 
   if (type === 'risk') {
     let cls = 'badge-low';

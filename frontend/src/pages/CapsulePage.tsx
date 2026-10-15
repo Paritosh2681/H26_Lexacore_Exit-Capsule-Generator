@@ -33,12 +33,70 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (!scanId) {
+      setLoading(false);
+      setError('No scan ID provided. Select a scan to inspect its Exit Capsule.');
+      return;
+    }
     setLoading(true);
+    setError(null);
     getCapsule(scanId)
-      .then(setCapsule)
-      .catch((err) => setError(err.message || 'Failed to load capsule'))
+      .then((res) => {
+        setCapsule(res);
+        setError(null);
+      })
+      .catch((err) => {
+        console.error('Failed to load capsule:', err);
+        setError(err.message || 'Failed to load capsule');
+      })
       .finally(() => setLoading(false));
   }, [scanId]);
+
+  const data = capsule?.capsule_data;
+  const ledger = data?.evidence_ledger || [];
+
+  const dependencies = React.useMemo(() => {
+    if (!data) return [];
+    if (data.dependencies && Array.isArray(data.dependencies) && data.dependencies.length > 0) {
+      return data.dependencies;
+    }
+    const recMap = new Map((data.ai_recommendations || []).map((r: any) => [r.package_name, r]));
+    const verList = data.verification_checks || [];
+
+    const allPkgs = new Set<string>();
+    if (data.dependency_inventory && typeof data.dependency_inventory === 'object') {
+      Object.values(data.dependency_inventory).forEach((list: any) => {
+        if (Array.isArray(list)) list.forEach((p: string) => allPkgs.add(p));
+      });
+    }
+    (data.risk_assessments || []).forEach((ra: any) => {
+      if (ra?.package_name) allPkgs.add(ra.package_name);
+    });
+
+    const raMap = new Map((data.risk_assessments || []).map((ra: any) => [ra.package_name, ra]));
+
+    return Array.from(allPkgs).map((pkgName) => {
+      const ra = raMap.get(pkgName) as any;
+      const rec = recMap.get(pkgName) as any;
+      const vers = verList.filter((v: any) => v.package_name === pkgName);
+      const passedCount = vers.filter((v: any) => v.status === 'PASS').length;
+      return {
+        package_name: pkgName,
+        current_version: ra?.pinned_version || ra?.declared_version || '—',
+        risk_score: ra?.overall_score ?? ra?.risk_score ?? 0,
+        recommended_replacement: rec?.candidate_replacement || (rec?.proposal?.candidate_replacement) || 'None',
+        classification: rec ? 'AI_RECOMMENDED' : (ra?.category === 'declared' ? 'OBSERVED' : 'UNVERIFIED'),
+        verification_status: vers.length > 0 ? `${passedCount}/${vers.length} PASS` : 'Evidence Collected'
+      };
+    });
+  }, [data]);
+
+  const handleCopy = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   if (loading) {
     return (
@@ -52,45 +110,13 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
     return (
       <div style={{ maxWidth: '700px', margin: '48px auto', padding: '24px' }} className="workbench-panel">
         <h2 style={{ color: 'var(--status-fail-text)', marginBottom: '8px', fontSize: '1.1rem' }}>Capsule Unavailable</h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.85rem' }}>{error}</p>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.85rem' }}>{error || 'Unable to load capsule data.'}</p>
         <button className="btn btn-secondary" onClick={onBack}>
           <ArrowLeft size={14} /> <span>Return to Workspace</span>
         </button>
       </div>
     );
   }
-
-  const data = capsule.capsule_data;
-  const ledger = data?.evidence_ledger || [];
-
-  const dependencies = React.useMemo(() => {
-    if (!data) return [];
-    if (data.dependencies && Array.isArray(data.dependencies) && data.dependencies.length > 0) {
-      return data.dependencies;
-    }
-    const recMap = new Map((data.ai_recommendations || []).map((r: any) => [r.package_name, r]));
-    const verList = data.verification_checks || [];
-    
-    return (data.risk_assessments || []).map((ra: any) => {
-      const rec = recMap.get(ra.package_name) as any;
-      const vers = verList.filter((v: any) => v.package_name === ra.package_name);
-      const passedCount = vers.filter((v: any) => v.status === 'PASS').length;
-      return {
-        package_name: ra.package_name,
-        current_version: ra.pinned_version || '—',
-        risk_score: ra.overall_score ?? ra.risk_score ?? 0,
-        recommended_replacement: rec?.candidate_replacement || (rec?.proposal?.candidate_replacement) || 'None',
-        classification: rec ? 'AI_RECOMMENDED' : (ra.category === 'declared' ? 'OBSERVED' : 'UNVERIFIED'),
-        verification_status: vers.length > 0 ? `${passedCount}/${vers.length} PASS` : 'Evidence Collected'
-      };
-    });
-  }, [data]);
-
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div style={{ maxWidth: '1140px', margin: '0 auto', padding: '28px 24px' }}>
@@ -257,7 +283,7 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
               </div>
               <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Seal Timestamp:</span>
-                <span>{data?.scan_timestamp ? new Date(data.scan_timestamp * 1000).toUTCString() : (data?.generated_at ? new Date(data.generated_at).toUTCString() : 'Active')}</span>
+                <span>{data?.scan_timestamp ? new Date(Number(data.scan_timestamp) * (Number(data.scan_timestamp) < 10000000000 ? 1000 : 1)).toUTCString() : (data?.generated_at ? new Date(data.generated_at).toUTCString() : 'Active')}</span>
               </div>
             </div>
           </div>
@@ -374,9 +400,9 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
                       <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
                         {entry.claim || entry.item}
                       </div>
-                      {entry.details && (
+                      {(entry.evidence || entry.details) && (
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                          {typeof entry.details === 'string' ? entry.details : JSON.stringify(entry.details)}
+                          {typeof (entry.evidence || entry.details) === 'string' ? (entry.evidence || entry.details) : JSON.stringify(entry.evidence || entry.details)}
                         </div>
                       )}
                     </td>
