@@ -13,6 +13,7 @@ from app.routes.planner import router as plan_router
 from app.routes.capsule import router as cap_router
 from app.routes.post_verification import router as post_ver_router
 from app.routes.settings_route import router as settings_router
+from app.routes.auth_github import router as github_router
 
 from contextlib import asynccontextmanager
 
@@ -46,6 +47,7 @@ app.include_router(plan_router)
 app.include_router(cap_router)
 app.include_router(post_ver_router)
 app.include_router(settings_router)
+app.include_router(github_router)
 
 # Serve frontend build if present
 frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"

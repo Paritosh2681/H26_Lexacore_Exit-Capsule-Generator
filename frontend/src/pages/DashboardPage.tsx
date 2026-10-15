@@ -15,11 +15,13 @@ import {
   Activity,
   Plus,
   RefreshCw,
-  FolderGit2
+  FolderGit2,
+  Github
 } from 'lucide-react';
 import { listScans, deleteScan, listImplementationPlans } from '../api/client';
 import { ScanItem, ImplementationPlanSummary } from '../api/types';
 import { StatusBadge } from '../components/StatusBadge';
+import { GitHubModal } from '../components/GitHubModal';
 
 interface DashboardPageProps {
   onNavigateNewScan: () => void;
@@ -38,6 +40,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 }) => {
   const [scans, setScans] = useState<ScanItem[]>([]);
   const [plans, setPlans] = useState<ImplementationPlanSummary[]>([]);
+  const [githubModalOpen, setGithubModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,6 +114,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => setGithubModalOpen(true)}
+            title="Discover and scan remote GitHub repositories"
+          >
+            <Github size={13} />
+            <span>GitHub Repos</span>
+          </button>
           <button 
             className="btn btn-secondary" 
             onClick={fetchScans} 
@@ -455,6 +466,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
         </div>
       )}
+
+      {/* GITHUB INTEGRATION MODAL */}
+      <GitHubModal
+        isOpen={githubModalOpen}
+        onClose={() => setGithubModalOpen(false)}
+        onScanStarted={(scanId) => {
+          onOpenScan(scanId);
+        }}
+      />
     </div>
   );
 };

@@ -88,11 +88,68 @@ cd frontend
 npm install
 npm run dev
 ```
-Open **`http://localhost:5173`**
+Open **`http://localhost:5173`** (or `http://127.0.0.1:8000` when running production build)
 
 ---
 
-## 4. Running the Automated Test Suite
+## 4. Command-Line Interface (CLI)
+
+Exit Capsule provides an independent, cross-platform CLI tool for developer terminals and CI/CD pipelines:
+
+### Installation
+```bash
+# Editable install in your active Python 3.12+ virtualenv
+cd backend
+python -m pip install -e .
+```
+
+### Usage
+```bash
+# Print help and usage
+exit-capsule --help
+
+# Scan current directory and export JSON & Markdown capsules to ./capsule-report
+exit-capsule analyze .
+
+# Scan specific repository and custom output directory
+exit-capsule analyze /path/to/project --output ./capsule-report
+
+# CI Pipeline mode: fail with exit code 2 if HIGH or CRITICAL risk is found
+exit-capsule analyze . --fail-on-risk --no-ai
+
+# Display system configuration and Gemma 4 model status
+exit-capsule info
+
+# Run 10-point independent verification between two packages
+exit-capsule verify requests --candidate httpx
+```
+
+### Exit Codes:
+- `0`: Scan completed successfully
+- `1`: Scan runtime error or invalid path
+- `2`: High or critical risk dependencies discovered with `--fail-on-risk`
+
+---
+
+## 5. GitHub OAuth & Remote Repository Integration
+
+Exit Capsule supports server-side GitHub OAuth for scanning remote private or organization repositories:
+
+1. Create a GitHub OAuth App under **GitHub Settings -> Developer Settings -> OAuth Apps**:
+   - Application Name: `Exit Capsule Workbench`
+   - Homepage URL: `http://localhost:5173`
+   - Authorization callback URL: `http://localhost:5173/auth/callback`
+2. Add your credentials to `backend/.env`:
+   ```bash
+   GITHUB_CLIENT_ID=your_client_id_here
+   GITHUB_CLIENT_SECRET=your_client_secret_here
+   GITHUB_REDIRECT_URI=http://localhost:5173/auth/callback
+   ```
+3. Open the Exit Capsule application, click **"Connect GitHub"**, and select any repository to clone and analyze.
+
+---
+
+## 6. Running the Automated Test Suite
 
 The project includes unit and integration tests with 100% passing coverage across all subsystems:
 

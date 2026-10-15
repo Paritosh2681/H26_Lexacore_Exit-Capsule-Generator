@@ -220,3 +220,29 @@ export interface ImplementationPlanSummary {
   checks_count: number;
 }
 
+export interface GitHubUser {
+  username: string;
+  name: string;
+  avatar_url?: string;
+}
+
+export interface GitHubAuthStatus {
+  configured: boolean;
+  connected: boolean;
+  user: GitHubUser | null;
+  message: string;
+}
+
+export interface GitHubRepository {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  html_url: string;
+  clone_url: string;
+  description: string;
+  default_branch: string;
+  language: string;
+  updated_at: string;
+}
+

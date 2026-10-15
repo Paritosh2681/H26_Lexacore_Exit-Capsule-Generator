@@ -11,12 +11,33 @@ import { PlansListPage } from './pages/PlansListPage';
 import { ImplementationPlannerPage } from './pages/ImplementationPlannerPage';
 import { PostVerificationPage } from './pages/PostVerificationPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { listScans } from './api/client';
+import { listScans, completeGitHubCallback } from './api/client';
+import { GitHubModal } from './components/GitHubModal';
 
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<AppTab | 'landing'>('landing');
   const [activeScanId, setActiveScanId] = useState<string | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+  const [githubModalOpen, setGithubModalOpen] = useState(false);
+
+  // Handle GitHub OAuth callback redirects
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    if (code) {
+      completeGitHubCallback(code, state || undefined)
+        .then(() => {
+          window.history.replaceState({}, document.title, window.location.pathname.replace(/\/auth\/callback\/?/, ''));
+          setCurrentTab('overview');
+          setGithubModalOpen(true);
+        })
+        .catch((err) => {
+          console.error('GitHub authentication failed:', err);
+          setCurrentTab('overview');
+        });
+    }
+  }, []);
 
   // Auto-select latest scan when scans load
   useEffect(() => {
@@ -52,6 +73,10 @@ export const App: React.FC = () => {
       <LandingPage
         onAnalyzeRepo={() => setCurrentTab('new-scan')}
         onOpenDashboard={() => setCurrentTab('overview')}
+        onOpenScan={(scanId) => {
+          setActiveScanId(scanId);
+          setCurrentTab('inventory');
+        }}
       />
     );
   }
@@ -182,6 +207,12 @@ export const App: React.FC = () => {
       {currentTab === 'settings' && (
         <SettingsPage />
       )}
+
+      <GitHubModal
+        isOpen={githubModalOpen}
+        onClose={() => setGithubModalOpen(false)}
+        onScanStarted={navigateToScan}
+      />
     </AppShell>
   );
 };

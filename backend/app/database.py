@@ -123,6 +123,18 @@ def init_db():
             created_at TEXT NOT NULL
         )
         """)
+
+        # GitHub sessions table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS github_sessions (
+            session_id TEXT PRIMARY KEY,
+            access_token TEXT NOT NULL,
+            username TEXT,
+            name TEXT,
+            avatar_url TEXT,
+            created_at TEXT NOT NULL
+        )
+        """)
         
         conn.commit()
 

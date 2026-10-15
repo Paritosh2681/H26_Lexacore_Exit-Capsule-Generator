@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     GEMMA_MODEL: str = Field(default="google/gemma-4-27b-it", env="GEMMA_MODEL")
     ENABLE_REMOTE_INFERENCE: bool = Field(default=False, env="ENABLE_REMOTE_INFERENCE")
 
+    # GitHub OAuth Settings
+    GITHUB_CLIENT_ID: str = Field(default="", env="GITHUB_CLIENT_ID")
+    GITHUB_CLIENT_SECRET: str = Field(default="", env="GITHUB_CLIENT_SECRET")
+    GITHUB_REDIRECT_URI: str = Field(default="http://localhost:5173/auth/callback", env="GITHUB_REDIRECT_URI")
+
     # Security & Execution Limits
     COMMAND_TIMEOUT_SECONDS: int = Field(default=120, env="COMMAND_TIMEOUT_SECONDS")
     MAX_COMMAND_OUTPUT_BYTES: int = Field(default=524288, env="MAX_COMMAND_OUTPUT_BYTES")  # 512 KB

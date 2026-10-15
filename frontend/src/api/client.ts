@@ -144,3 +144,92 @@ export async function getImplementationPlan(scanId: string, packageName: string)
   return resp.json();
 }
 
+function getSessionHeader(): Record<string, string> {
+  const sid = localStorage.getItem('exit_capsule_gh_session');
+  return sid ? { 'X-Session-ID': sid } : {};
+}
+
+export async function getGitHubStatus(): Promise<import('./types').GitHubAuthStatus> {
+  const resp = await fetch(`${API_BASE}/auth/github/status`, {
+    headers: getSessionHeader()
+  });
+  if (!resp.ok) throw new Error('Failed to fetch GitHub status');
+  return resp.json();
+}
+
+export async function getGitHubLoginUrl(): Promise<{ auth_url: string; state: string }> {
+  const resp = await fetch(`${API_BASE}/auth/github/login`);
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(err.detail || 'GitHub OAuth not configured on server');
+  }
+  return resp.json();
+}
+
+export async function completeGitHubCallback(code: string, state?: string): Promise<{ session_id: string; user: import('./types').GitHubUser }> {
+  const resp = await fetch(`${API_BASE}/auth/github/callback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, state })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(err.detail || 'Failed to complete GitHub authorization');
+  }
+  const data = await resp.json();
+  if (data.session_id) {
+    localStorage.setItem('exit_capsule_gh_session', data.session_id);
+  }
+  return data;
+}
+
+export async function disconnectGitHub(): Promise<void> {
+  const sid = localStorage.getItem('exit_capsule_gh_session');
+  await fetch(`${API_BASE}/auth/github/disconnect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sid })
+  }).catch(() => {});
+  localStorage.removeItem('exit_capsule_gh_session');
+}
+
+export async function listGitHubRepositories(search?: string): Promise<import('./types').GitHubRepository[]> {
+  const url = search 
+    ? `${API_BASE}/auth/github/repos?search=${encodeURIComponent(search)}`
+    : `${API_BASE}/auth/github/repos`;
+  const resp = await fetch(url, {
+    headers: getSessionHeader()
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(err.detail || 'Failed to fetch GitHub repositories');
+  }
+  return resp.json();
+}
+
+export async function cloneAndScanGitHubRepo(
+  repoFullName: string,
+  cloneUrl?: string,
+  defaultBranch?: string,
+  runAi: boolean = false
+): Promise<{ scan_id: string; status: string; message: string }> {
+  const resp = await fetch(`${API_BASE}/auth/github/clone-and-scan`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getSessionHeader()
+    },
+    body: JSON.stringify({
+      repo_full_name: repoFullName,
+      clone_url: cloneUrl,
+      default_branch: defaultBranch,
+      run_ai: runAi
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(err.detail || 'Failed to clone and analyze GitHub repository');
+  }
+  return resp.json();
+}
+

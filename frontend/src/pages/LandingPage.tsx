@@ -18,14 +18,22 @@ import {
 import { EditorialNavbar } from '../components/editorial/EditorialNavbar';
 import { HeroReportArtifact } from '../components/editorial/HeroReportArtifact';
 import { ProductShowcase } from '../components/editorial/ProductShowcase';
+import { InteractiveDependencyGraph } from '../components/landing/InteractiveDependencyGraph';
+import { RiskToCapsuleAnimator } from '../components/landing/RiskToCapsuleAnimator';
+import { GitHubModal } from '../components/GitHubModal';
+import { CliModal } from '../components/CliModal';
+import { Github, Play } from 'lucide-react';
 
 interface LandingPageProps {
   onAnalyzeRepo: () => void;
   onOpenDashboard: () => void;
+  onOpenScan?: (scanId: string) => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onAnalyzeRepo, onOpenDashboard }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onAnalyzeRepo, onOpenDashboard, onOpenScan }) => {
   const [docsModalOpen, setDocsModalOpen] = useState(false);
+  const [githubModalOpen, setGithubModalOpen] = useState(false);
+  const [cliModalOpen, setCliModalOpen] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
 
   const specimenPrompt = `You are an automated Python migration agent.
@@ -101,50 +109,55 @@ DIRECTIVE:
             maxWidth: '680px',
             marginBottom: '32px'
           }}>
-            Exit Capsule examines dependency risk, maps real code usage, checks AI-generated migration proposals, and turns the findings into an actionable implementation plan.
+            Analyze dependencies, identify maintenance risks, verify AI migration recommendations, and create implementation plans supported by real evidence.
           </p>
 
-          {/* Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+          {/* Working CTAs */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <button
               onClick={onAnalyzeRepo}
+              className="btn btn-primary"
               style={{
-                background: '#111210',
-                color: '#FAFAF8',
-                border: '1px solid #111210',
-                borderRadius: '6px',
-                padding: '12px 24px',
+                padding: '12px 22px',
                 fontSize: '0.92rem',
-                fontWeight: 500,
-                fontFamily: 'var(--font-interface)',
-                cursor: 'pointer',
-                transition: 'opacity 0.15s ease'
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-            >
-              Open workspace
-            </button>
-
-            <a
-              href="#workflow"
-              style={{
-                color: '#111210',
-                fontSize: '0.92rem',
-                fontWeight: 500,
-                textDecoration: 'none',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                borderBottom: '1px solid #E7E8E3',
-                paddingBottom: '2px',
-                transition: 'border-color 0.15s ease'
+                gap: '8px'
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#111210')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#E7E8E3')}
             >
-              Explore the workflow &rarr;
-            </a>
+              <Play size={15} />
+              <span>Analyze a repository</span>
+            </button>
+
+            <button
+              onClick={() => setGithubModalOpen(true)}
+              className="btn btn-secondary"
+              style={{
+                padding: '12px 18px',
+                fontSize: '0.92rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Github size={16} />
+              <span>Connect GitHub</span>
+            </button>
+
+            <button
+              onClick={() => setCliModalOpen(true)}
+              className="btn btn-secondary"
+              style={{
+                padding: '12px 18px',
+                fontSize: '0.92rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Terminal size={16} />
+              <span>Install CLI</span>
+            </button>
           </div>
         </div>
 
@@ -352,6 +365,11 @@ DIRECTIVE:
               </div>
             ))}
           </div>
+
+          {/* Interactive Step Progression Animation */}
+          <div style={{ marginTop: '48px' }}>
+            <RiskToCapsuleAnimator />
+          </div>
         </div>
       </section>
 
@@ -390,6 +408,26 @@ DIRECTIVE:
 
           {/* Product Showcase Component */}
           <ProductShowcase onOpenWorkspace={onAnalyzeRepo} />
+
+          {/* Interactive Topology Graph */}
+          <div style={{ marginTop: '56px' }}>
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: '1.4rem',
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                color: '#111210',
+                margin: '0 0 6px'
+              }}>
+                Dependency Graph &amp; Verified Replacements
+              </h3>
+              <p style={{ fontSize: '0.86rem', color: '#696B66', margin: 0 }}>
+                Interactive visual map showing repository call expressions, risk severity indicators, and verified migration candidates.
+              </p>
+            </div>
+            <InteractiveDependencyGraph />
+          </div>
         </div>
       </section>
 
@@ -720,7 +758,143 @@ DIRECTIVE:
         </div>
       </section>
 
-      {/* SECTION 7 — FINAL CTA */}
+      {/* SECTION 7 — INTEGRATIONS (GITHUB & CLI) */}
+      <section id="integration" style={{
+        borderTop: '1px solid #E7E8E3',
+        background: '#FAFAF8',
+        padding: '88px 24px'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <div style={{ maxWidth: '720px', marginBottom: '48px' }}>
+            <div style={{
+              fontSize: '0.72rem',
+              fontFamily: 'var(--font-mono)',
+              color: '#696B66',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              marginBottom: '12px'
+            }}>
+              07 / INTEGRATIONS &amp; WORKFLOWS
+            </div>
+            <h2 style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 'clamp(1.8rem, 3.2vw, 2.6rem)',
+              fontWeight: 700,
+              letterSpacing: '-0.025em',
+              color: '#111210'
+            }}>
+              Connect your repositories or run locally in CI.
+            </h2>
+            <p style={{ fontSize: '0.95rem', color: '#696B66', marginTop: '12px' }}>
+              Exit Capsule works wherever your code lives — through server-side GitHub OAuth or directly on developer workstations and CI runners.
+            </p>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '24px'
+          }}>
+            {/* GitHub Card */}
+            <div style={{
+              background: '#FFFFFF',
+              border: '1px solid #E7E8E3',
+              borderRadius: '8px',
+              padding: '32px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between'
+            }}>
+              <div>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '16px'
+                }}>
+                  <Github size={22} color="var(--text-primary)" />
+                </div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                  GitHub Integration
+                </h3>
+                <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+                  Authenticate via server-side OAuth to list accessible repositories, select target branches, and run automated dependency audits with one click.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setGithubModalOpen(true)}
+                className="btn btn-secondary"
+                style={{
+                  padding: '10px 16px',
+                  fontSize: '0.86rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Github size={16} />
+                <span>Connect GitHub Repository</span>
+              </button>
+            </div>
+
+            {/* CLI Card */}
+            <div style={{
+              background: '#FFFFFF',
+              border: '1px solid #E7E8E3',
+              borderRadius: '8px',
+              padding: '32px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between'
+            }}>
+              <div>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '16px'
+                }}>
+                  <Terminal size={22} color="var(--text-primary)" />
+                </div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                  Cross-Platform CLI
+                </h3>
+                <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+                  Install the <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--bg-subtle)', padding: '2px 4px', borderRadius: '3px' }}>exit-capsule</code> CLI on Windows PowerShell, Command Prompt, macOS, or Linux. Ideal for pull-request regression gates and CI workflows.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setCliModalOpen(true)}
+                className="btn btn-secondary"
+                style={{
+                  padding: '10px 16px',
+                  fontSize: '0.86rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Terminal size={16} />
+                <span>View Installation Guide</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 8 — FINAL CTA */}
       <section style={{
         padding: '96px 24px',
         textAlign: 'center'
@@ -961,6 +1135,25 @@ npm run dev`}
           </div>
         </div>
       )}
+
+      {/* GITHUB INTEGRATION MODAL */}
+      <GitHubModal
+        isOpen={githubModalOpen}
+        onClose={() => setGithubModalOpen(false)}
+        onScanStarted={(scanId) => {
+          if (onOpenScan) {
+            onOpenScan(scanId);
+          } else {
+            onAnalyzeRepo();
+          }
+        }}
+      />
+
+      {/* CLI INSTALLATION MODAL */}
+      <CliModal
+        isOpen={cliModalOpen}
+        onClose={() => setCliModalOpen(false)}
+      />
     </div>
   );
 };

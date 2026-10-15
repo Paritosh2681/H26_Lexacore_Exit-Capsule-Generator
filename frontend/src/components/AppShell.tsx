@@ -16,10 +16,12 @@ import {
   CheckCircle2,
   Terminal,
   ExternalLink,
-  Plus
+  Plus,
+  Github
 } from 'lucide-react';
 import { ScanItem, SystemSettings } from '../api/types';
 import { listScans, getSettings } from '../api/client';
+import { GitHubModal } from './GitHubModal';
 
 export type AppTab = 
   | 'overview' 
@@ -52,6 +54,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [githubModalOpen, setGithubModalOpen] = useState(false);
   const [scans, setScans] = useState<ScanItem[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
 
@@ -392,6 +395,16 @@ export const AppShell: React.FC<AppShellProps> = ({
             </div>
 
             {/* Contextual Action Area */}
+            <button
+              className="btn btn-secondary"
+              style={{ padding: '4px 10px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+              onClick={() => setGithubModalOpen(true)}
+              title="Connect GitHub Repository"
+            >
+              <Github size={13} />
+              <span>GitHub</span>
+            </button>
+
             <button 
               className="btn btn-primary"
               style={{ padding: '4px 10px', fontSize: '0.78rem' }}
@@ -465,6 +478,15 @@ export const AppShell: React.FC<AppShellProps> = ({
           {children}
         </main>
       </div>
+
+      <GitHubModal
+        isOpen={githubModalOpen}
+        onClose={() => setGithubModalOpen(false)}
+        onScanStarted={(id) => {
+          onSelectScan(id);
+          onSelectTab('inventory');
+        }}
+      />
 
       <style>{`
         @media (max-width: 840px) {

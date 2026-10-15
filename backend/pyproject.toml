@@ -24,7 +24,11 @@ dev = [
     "pytest-cov>=4.0.0",
 ]
 
+[project.scripts]
+exit-capsule = "app.cli:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+pythonpath = ["."]
 norecursedirs = ["fixtures", "sample_project", ".git", ".venv", "venv"]
