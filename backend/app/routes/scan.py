@@ -4,6 +4,7 @@ import time
 import json
 import shutil
 import asyncio
+import subprocess
 from pathlib import Path
 from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException, BackgroundTasks
@@ -176,9 +177,39 @@ def execute_scan_pipeline(scan_id: str, repo_path_str: str, run_ai: bool, custom
 
 @router.post("/start", response_model=StartScanResponse)
 def start_scan(req: StartScanRequest, background_tasks: BackgroundTasks):
-    """Start scanning a local repository."""
-    if not is_safe_repo_path(req.repo_path):
-        raise HTTPException(status_code=400, detail=f"Invalid repository directory: {req.repo_path}")
+    """Start scanning a local repository or remote GitHub repository URL."""
+    target_repo = req.repo_path.strip()
+    is_git_url = any(target_repo.startswith(p) for p in ("http://", "https://", "git@", "github.com"))
+    
+    if is_git_url:
+        if not target_repo.startswith("http") and not target_repo.startswith("git@"):
+            target_repo = "https://" + target_repo
+        
+        parts = target_repo.rstrip("/").replace(".git", "").split("/")
+        repo_name = f"{parts[-2]}_{parts[-1]}" if len(parts) >= 2 else parts[-1]
+        workspace_dir = Path(settings.TEMP_WORKSPACES_DIR) / f"git_{repo_name}"
+        
+        # Check if already cloned, otherwise clone now
+        if not workspace_dir.exists() or not (workspace_dir / ".git").exists():
+            workspace_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                cmd = ["git", "clone", "--depth", "1", target_repo, str(workspace_dir)]
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+                if proc.returncode != 0:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to clone repository from '{target_repo}': {proc.stderr[:200]}"
+                    )
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Git clone error: {str(e)}")
+        
+        actual_path = str(workspace_dir.resolve())
+    else:
+        if not is_safe_repo_path(target_repo):
+            raise HTTPException(status_code=400, detail=f"Invalid repository directory: {req.repo_path}")
+        actual_path = str(Path(target_repo).resolve())
 
     scan_id = f"scan_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
     
@@ -200,7 +231,7 @@ def start_scan(req: StartScanRequest, background_tasks: BackgroundTasks):
     background_tasks.add_task(
         execute_scan_pipeline,
         scan_id=scan_id,
-        repo_path_str=req.repo_path,
+        repo_path_str=actual_path,
         run_ai=req.run_ai,
         custom_mappings=req.custom_mappings
     )

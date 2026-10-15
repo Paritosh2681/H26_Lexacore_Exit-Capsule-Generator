@@ -203,33 +203,51 @@ export const NewScanPage: React.FC<NewScanPageProps> = ({ onScanCompleted, onCan
             <div style={{ marginBottom: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Local Repository Directory Path <span style={{ color: 'var(--status-fail-text)' }}>*</span>
+                  Repository Path or Public GitHub URL <span style={{ color: 'var(--status-fail-text)' }}>*</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={fillSamplePath}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--accent-sage-dark)',
-                    fontSize: '0.74rem',
-                    cursor: 'pointer',
-                    textDecoration: 'underline'
-                  }}
-                >
-                  Use sample fixture
-                </button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setRepoPath('https://github.com/rishrek/LinkWatch')}
+                    style={{
+                      background: '#171815',
+                      color: '#FAFAF8',
+                      border: 'none',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Paste LinkWatch URL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fillSamplePath}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--accent-sage-dark)',
+                      fontSize: '0.74rem',
+                      cursor: 'pointer',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    Use local fixture
+                  </button>
+                </div>
               </div>
               <input
                 type="text"
                 className="input-field font-mono"
-                placeholder="e.g. c:/projects/my-service or /home/dev/repo"
+                placeholder="e.g. https://github.com/rishrek/LinkWatch or c:/projects/my-service"
                 value={repoPath}
                 onChange={(e) => setRepoPath(e.target.value)}
                 required
               />
               <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Must be an existing local directory containing Python source files or manifests.
+                Paste any public GitHub repository URL (e.g. <code>https://github.com/rishrek/LinkWatch</code>) or local folder path.
               </p>
             </div>
 

@@ -63,6 +63,29 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
   const data = capsule.capsule_data;
   const ledger = data?.evidence_ledger || [];
 
+  const dependencies = React.useMemo(() => {
+    if (!data) return [];
+    if (data.dependencies && Array.isArray(data.dependencies) && data.dependencies.length > 0) {
+      return data.dependencies;
+    }
+    const recMap = new Map((data.ai_recommendations || []).map((r: any) => [r.package_name, r]));
+    const verList = data.verification_checks || [];
+    
+    return (data.risk_assessments || []).map((ra: any) => {
+      const rec = recMap.get(ra.package_name) as any;
+      const vers = verList.filter((v: any) => v.package_name === ra.package_name);
+      const passedCount = vers.filter((v: any) => v.status === 'PASS').length;
+      return {
+        package_name: ra.package_name,
+        current_version: ra.pinned_version || '—',
+        risk_score: ra.overall_score ?? ra.risk_score ?? 0,
+        recommended_replacement: rec?.candidate_replacement || (rec?.proposal?.candidate_replacement) || 'None',
+        classification: rec ? 'AI_RECOMMENDED' : (ra.category === 'declared' ? 'OBSERVED' : 'UNVERIFIED'),
+        verification_status: vers.length > 0 ? `${passedCount}/${vers.length} PASS` : 'Evidence Collected'
+      };
+    });
+  }, [data]);
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -224,17 +247,17 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', fontSize: '0.8rem' }}>
               <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Target Repository:</span>
-                <span className="font-mono" style={{ fontWeight: 600 }}>{data?.repository?.path || 'LinkWatch Core'}</span>
+                <span className="font-mono" style={{ fontWeight: 600 }}>{data?.repository_path || data?.repository?.path || 'LinkWatch Core'}</span>
               </div>
               <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>SHA-256 Digest:</span>
                 <span className="font-mono" style={{ color: 'var(--text-primary)', wordBreak: 'break-all', fontSize: '0.74rem' }}>
-                  {data?.capsule_sha256 || 'SHA256_SEAL_VALIDATED'}
+                  {data?.capsule_sha256 || capsule.scan_id}
                 </span>
               </div>
               <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Seal Timestamp:</span>
-                <span>{data?.generated_at ? new Date(data.generated_at).toUTCString() : 'Active'}</span>
+                <span>{data?.scan_timestamp ? new Date(data.scan_timestamp * 1000).toUTCString() : (data?.generated_at ? new Date(data.generated_at).toUTCString() : 'Active')}</span>
               </div>
             </div>
           </div>
@@ -253,7 +276,7 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
                 Target Dependencies & Migration Evidence
               </span>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                {data?.dependencies?.length || 0} package records
+                {dependencies.length} package records
               </span>
             </div>
 
@@ -270,7 +293,7 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(data?.dependencies || []).map((dep: any, idx: number) => (
+                  {dependencies.map((dep: any, idx: number) => (
                     <tr key={idx}>
                       <td>
                         <span className="font-mono" style={{ fontWeight: 600 }}>{dep.name || dep.package_name}</span>
@@ -288,7 +311,9 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
                           <span className="font-mono" style={{ fontWeight: 600, color: '#6D28D9' }}>
                             {dep.recommended_replacement || 'None'}
                           </span>
-                          <span className="badge badge-ai" style={{ fontSize: '0.66rem' }}>AI</span>
+                          {dep.recommended_replacement && dep.recommended_replacement !== 'None' && (
+                            <span className="badge badge-ai" style={{ fontSize: '0.66rem' }}>AI</span>
+                          )}
                         </div>
                       </td>
                       <td>

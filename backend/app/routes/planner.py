@@ -84,17 +84,18 @@ def list_implementation_plans(scan_id: str):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT scan_id, package_name, candidate_package, created_at, plan_json FROM implementation_plans WHERE scan_id = ? ORDER BY id DESC
+            SELECT scan_id, package_name, created_at, plan_json FROM implementation_plans WHERE scan_id = ? ORDER BY created_at DESC
         """, (scan_id,))
         rows = []
         for r in cursor.fetchall():
             plan_obj = json.loads(r["plan_json"]) if r["plan_json"] else {}
+            candidate = plan_obj.get("candidate_package") or plan_obj.get("replacement_package") or "Candidate"
             rows.append({
                 "scan_id": r["scan_id"],
                 "package_name": r["package_name"],
-                "candidate_package": r["candidate_package"],
+                "candidate_package": candidate,
                 "created_at": r["created_at"],
-                "objective": plan_obj.get("objective", f"Migrate {r['package_name']} to {r['candidate_package']}"),
+                "objective": plan_obj.get("objective", f"Migrate {r['package_name']} to {candidate}"),
                 "files_count": len(plan_obj.get("files_likely_to_change", [])),
                 "steps_count": len(plan_obj.get("ordered_implementation_steps", [])),
                 "checks_count": len(plan_obj.get("verification_checklist", []))
