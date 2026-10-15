@@ -273,6 +273,7 @@ def get_scan_progress(scan_id: str):
             error_message=row["error_message"]
         )
 
+@router.get("", include_in_schema=False)
 @router.get("/")
 def list_scans():
     """List all previous scans."""
