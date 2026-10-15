@@ -100,10 +100,10 @@ export const App: React.FC = () => {
       )}
 
       {currentTab === 'inventory' && !activeScanId && (
-        <div style={{ maxWidth: '800px', margin: '48px auto', textAlign: 'center', padding: '32px' }} className="glass-panel">
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '8px', color: '#ffffff' }}>No Active Repository Scan</h2>
-          <p style={{ color: '#94a3b8', marginBottom: '16px' }}>Start an analysis to inspect dependencies and AST usage.</p>
-          <button className="btn btn-cyan" onClick={() => setCurrentTab('new-scan')}>
+        <div style={{ maxWidth: '640px', margin: '48px auto', textAlign: 'center', padding: '36px' }} className="workbench-panel">
+          <h2 style={{ fontSize: '1.1rem', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: 600 }}>No Active Repository Selected</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.84rem' }}>Select an existing repository scan or start a new analysis to inspect dependencies and AST usage.</p>
+          <button className="btn btn-primary" onClick={() => setCurrentTab('new-scan')}>
             Start New Analysis
           </button>
         </div>
@@ -134,10 +134,10 @@ export const App: React.FC = () => {
       )}
 
       {currentTab === 'capsules' && !activeScanId && (
-        <div style={{ maxWidth: '800px', margin: '48px auto', textAlign: 'center', padding: '32px' }} className="glass-panel">
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '8px', color: '#ffffff' }}>No Active Capsule</h2>
-          <p style={{ color: '#94a3b8', marginBottom: '16px' }}>Run a repository scan to generate an Exit Capsule.</p>
-          <button className="btn btn-cyan" onClick={() => setCurrentTab('new-scan')}>
+        <div style={{ maxWidth: '640px', margin: '48px auto', textAlign: 'center', padding: '36px' }} className="workbench-panel">
+          <h2 style={{ fontSize: '1.1rem', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: 600 }}>No Active Capsule Selected</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.84rem' }}>Select or run a repository scan to generate and inspect an Exit Capsule.</p>
+          <button className="btn btn-primary" onClick={() => setCurrentTab('new-scan')}>
             Start New Analysis
           </button>
         </div>
@@ -170,10 +170,10 @@ export const App: React.FC = () => {
       )}
 
       {currentTab === 'post-verify' && !activeScanId && (
-        <div style={{ maxWidth: '800px', margin: '48px auto', textAlign: 'center', padding: '32px' }} className="glass-panel">
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '8px', color: '#ffffff' }}>No Active Scan Selected</h2>
-          <p style={{ color: '#94a3b8', marginBottom: '16px' }}>Select or run a scan before running post-implementation verification.</p>
-          <button className="btn btn-cyan" onClick={() => setCurrentTab('new-scan')}>
+        <div style={{ maxWidth: '640px', margin: '48px auto', textAlign: 'center', padding: '36px' }} className="workbench-panel">
+          <h2 style={{ fontSize: '1.1rem', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: 600 }}>No Active Scan Selected</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.84rem' }}>Select or run a scan before executing post-implementation verification.</p>
+          <button className="btn btn-primary" onClick={() => setCurrentTab('new-scan')}>
             Start New Analysis
           </button>
         </div>

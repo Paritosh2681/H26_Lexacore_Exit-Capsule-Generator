@@ -10,7 +10,7 @@ import {
   Clock, 
   RefreshCw,
   ChevronDown,
-  ChevronUp,
+  ChevronRight,
   Layers,
   FlaskConical,
   Play
@@ -61,7 +61,7 @@ export const VerificationCenterPage: React.FC<VerificationCenterPageProps> = ({
       }
       setError(null);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch verification records');
+      setError(err.message || 'Failed to load verification checks');
     } finally {
       setLoading(false);
     }
@@ -71,336 +71,274 @@ export const VerificationCenterPage: React.FC<VerificationCenterPageProps> = ({
     loadData();
   }, [scanId]);
 
-  const handleRunVerification = async (e: React.FormEvent) => {
+  const handleManualRun = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!scanId || !targetPkg.trim() || !candPkg.trim()) return;
+
     try {
       setRunningVerify(true);
       setVerifyMsg(null);
-      await verifyDependency(scanId, targetPkg.trim(), candPkg.trim(), true);
-      setVerifyMsg(`Verification executed successfully for ${targetPkg}.`);
-      setTargetPkg('');
-      setCandPkg('');
+      await verifyDependency(scanId, targetPkg.trim(), candPkg.trim(), false);
+      setVerifyMsg(`Evaluated ${targetPkg} -> ${candPkg}. Reloading verification records...`);
+      setTimeout(() => setVerifyMsg(null), 3000);
       loadData();
     } catch (err: any) {
-      setVerifyMsg(`Verification failed: ${err.message}`);
+      setVerifyMsg(`Error: ${err.message}`);
     } finally {
       setRunningVerify(false);
     }
   };
 
-  const filtered = checks.filter((c) => {
-    const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
+  const filteredChecks = checks.filter((c) => {
     const matchesSearch = 
       c.check_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.package_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.evidence.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
+      c.package_name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'ALL' || c.status.toUpperCase() === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
   const passCount = checks.filter(c => c.status === 'PASS').length;
   const failCount = checks.filter(c => c.status === 'FAIL' || c.status === 'AI_CLAIM_REJECTED').length;
-  const inconclCount = checks.filter(c => c.status === 'INCONCLUSIVE').length;
-  const notRunCount = checks.filter(c => c.status === 'NOT_RUN' || c.status === 'UNVERIFIED').length;
+  const incCount = checks.filter(c => c.status === 'INCONCLUSIVE').length;
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '28px 24px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '28px' }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        borderBottom: '1px solid var(--border-color)',
+        paddingBottom: '18px',
+        marginBottom: '20px',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              background: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <ShieldCheck size={22} color="#10b981" />
-            </div>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#ffffff' }}>
-              Verification Center
-            </h1>
-          </div>
-          <p style={{ color: '#94a3b8', fontSize: '0.88rem', marginTop: '6px' }}>
-            Independent, empirical check receipts executed inside ephemeral sandboxes. Differentiates verified facts from unverified AI claims.
+          <h1 style={{
+            fontSize: '1.35rem',
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.02em',
+            fontFamily: 'var(--font-display)',
+            marginBottom: '2px'
+          }}>
+            Verification Suite
+          </h1>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            Deterministic 10-point evaluation records and sandbox test results.
           </p>
         </div>
 
-        <button 
-          onClick={loadData}
-          className="btn btn-secondary" 
-          style={{ fontSize: '0.82rem', padding: '7px 14px' }}
-        >
-          <RefreshCw size={14} /> Refresh Records
-        </button>
+        {/* Scan Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Scan:</span>
+          <select
+            value={scanId || ''}
+            onChange={(e) => onSelectScan(e.target.value)}
+            className="input-field font-mono"
+            style={{ width: 'auto', padding: '5px 10px', fontSize: '0.8rem' }}
+          >
+            {scans.map((s) => (
+              <option key={s.scan_id} value={s.scan_id}>
+                {s.repo_path.split(/[/\\]/).pop()} ({s.scan_id.slice(-6)})
+              </option>
+            ))}
+          </select>
+          <button className="btn btn-secondary" onClick={loadData} title="Refresh records" style={{ padding: '6px' }}>
+            <RefreshCw size={13} />
+          </button>
+        </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Badges */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '16px',
-        marginBottom: '28px'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: '10px',
+        marginBottom: '20px'
       }}>
-        <div className="glass-panel" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399', fontSize: '0.8rem', fontWeight: 600 }}>
-            <CheckCircle2 size={16} /> PASS (DETERMINISTIC)
+        <div className="workbench-card" style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 600 }}>
+            Total Checks Logged
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, marginTop: '6px', color: '#ffffff' }}>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+            {checks.length}
+          </div>
+        </div>
+        <div className="workbench-card" style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--status-pass-text)', fontWeight: 600 }}>
+            Passed Checks
+          </div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--status-pass-text)', fontFamily: 'var(--font-mono)' }}>
             {passCount}
           </div>
         </div>
-
-        <div className="glass-panel" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f87171', fontSize: '0.8rem', fontWeight: 600 }}>
-            <XCircle size={16} /> FAILED / REJECTED
+        <div className="workbench-card" style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--status-fail-text)', fontWeight: 600 }}>
+            Failed / Rejected
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, marginTop: '6px', color: '#ffffff' }}>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--status-fail-text)', fontFamily: 'var(--font-mono)' }}>
             {failCount}
           </div>
         </div>
-
-        <div className="glass-panel" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fbbf24', fontSize: '0.8rem', fontWeight: 600 }}>
-            <AlertTriangle size={16} /> INCONCLUSIVE
+        <div className="workbench-card" style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--status-warn-text)', fontWeight: 600 }}>
+            Inconclusive
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, marginTop: '6px', color: '#ffffff' }}>
-            {inconclCount}
-          </div>
-        </div>
-
-        <div className="glass-panel" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>
-            <Clock size={16} /> UNVERIFIED / NOT RUN
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, marginTop: '6px', color: '#ffffff' }}>
-            {notRunCount}
+          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--status-warn-text)', fontFamily: 'var(--font-mono)' }}>
+            {incCount}
           </div>
         </div>
       </div>
 
-      {/* Run New Verification Form Card */}
-      <div className="glass-panel" style={{ padding: '20px', marginBottom: '28px' }}>
-        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <FlaskConical size={16} color="#00f0ff" /> Run Independent Sandbox Verification on Dependency
-        </h3>
-
-        <form onSubmit={handleRunVerification} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* Manual Execution Banner */}
+      <div className="workbench-panel" style={{ padding: '16px 20px', marginBottom: '20px' }}>
+        <div style={{ fontSize: '0.76rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+          Execute Ad-Hoc Verification Check
+        </div>
+        <form onSubmit={handleManualRun} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="text"
-            className="input-field"
+            className="input-field font-mono"
             placeholder="Target package (e.g. requests)"
+            style={{ width: '220px' }}
             value={targetPkg}
             onChange={(e) => setTargetPkg(e.target.value)}
-            style={{ width: '220px', fontSize: '0.82rem', padding: '8px 12px' }}
             required
           />
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>&rarr;</span>
           <input
             type="text"
-            className="input-field"
+            className="input-field font-mono"
             placeholder="Candidate package (e.g. httpx)"
+            style={{ width: '220px' }}
             value={candPkg}
             onChange={(e) => setCandPkg(e.target.value)}
-            style={{ width: '220px', fontSize: '0.82rem', padding: '8px 12px' }}
             required
           />
-          <button
-            type="submit"
-            className="btn btn-cyan"
-            disabled={runningVerify || !scanId}
-            style={{ fontSize: '0.82rem', padding: '8px 16px' }}
-          >
-            <Play size={14} /> {runningVerify ? 'Executing Sandbox...' : 'Run 10-Point Suite'}
+          <button type="submit" className="btn btn-primary" disabled={runningVerify}>
+            <Play size={12} />
+            <span>{runningVerify ? 'Evaluating...' : 'Run 10-Point Suite'}</span>
           </button>
         </form>
-
         {verifyMsg && (
-          <div style={{
-            marginTop: '12px',
-            padding: '8px 14px',
-            borderRadius: '6px',
-            fontSize: '0.8rem',
-            background: verifyMsg.includes('failed') ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-            color: verifyMsg.includes('failed') ? '#fca5a5' : '#6ee7b7'
-          }}>
+          <div style={{ fontSize: '0.76rem', color: 'var(--accent-sage-dark)', marginTop: '8px' }}>
             {verifyMsg}
           </div>
         )}
       </div>
 
-      {/* Search and Filter Controls */}
-      <div className="glass-panel" style={{
-        padding: '14px 18px',
-        marginBottom: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
-          <Search size={15} color="#64748b" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+      {/* Filter and Search Bar */}
+      <div className="workbench-panel" style={{ padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+          <Search size={14} color="#8E9089" style={{ position: 'absolute', left: '10px', top: '10px' }} />
           <input
             type="text"
+            placeholder="Search checks by name or package..."
             className="input-field"
-            placeholder="Search checks, packages, or evidence..."
+            style={{ paddingLeft: '32px' }}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ paddingLeft: '34px', fontSize: '0.82rem' }}
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Status Filter:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>Status:</span>
           <select
             className="input-field"
+            style={{ width: 'auto', padding: '6px 10px' }}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ width: 'auto', padding: '6px 12px', fontSize: '0.82rem' }}
           >
-            <option value="ALL">All Statuses ({checks.length})</option>
-            <option value="PASS">PASS ({passCount})</option>
-            <option value="FAIL">FAIL</option>
-            <option value="INCONCLUSIVE">INCONCLUSIVE</option>
-            <option value="AI_CLAIM_REJECTED">AI CLAIM REJECTED</option>
-            <option value="NOT_RUN">NOT RUN</option>
+            <option value="ALL">All Outcomes</option>
+            <option value="PASS">Pass Only</option>
+            <option value="FAIL">Fail Only</option>
+            <option value="INCONCLUSIVE">Inconclusive Only</option>
+            <option value="AI_CLAIM_REJECTED">Claim Rejected Only</option>
           </select>
         </div>
       </div>
 
       {/* Checks Table */}
-      <div className="glass-panel" style={{ overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>
-            Loading verification receipts...
-          </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>
-            <AlertTriangle size={28} color="#f59e0b" style={{ margin: '0 auto 10px' }} />
-            <div style={{ fontWeight: 600, color: '#e2e8f0' }}>No verification records found</div>
-            <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>
-              Run the verification engine above or select a package in Dependencies to execute live tests.
-            </p>
-          </div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.84rem' }}>
+      <div className="workbench-panel" style={{ overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="workbench-table">
             <thead>
-              <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid var(--border-color)', color: '#94a3b8' }}>
-                <th style={{ padding: '12px 16px' }}>Target Package</th>
-                <th style={{ padding: '12px 16px' }}>Verification Check</th>
-                <th style={{ padding: '12px 16px' }}>Outcome Status</th>
-                <th style={{ padding: '12px 16px' }}>Observed Evidence</th>
-                <th style={{ padding: '12px 16px' }}>Runtime</th>
-                <th style={{ padding: '12px 16px', textAlign: 'right' }}>Details</th>
+              <tr>
+                <th style={{ width: '28px' }}></th>
+                <th>Check Identifier</th>
+                <th>Package Transition</th>
+                <th>Outcome Status</th>
+                <th>Execution Details</th>
+                <th>Timestamp</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((chk) => {
+              {filteredChecks.map((chk) => {
                 const isExpanded = expandedId === chk.id;
                 return (
                   <React.Fragment key={chk.id}>
                     <tr 
+                      style={{ cursor: 'pointer' }}
                       onClick={() => setExpandedId(isExpanded ? null : chk.id)}
-                      style={{
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                        cursor: 'pointer',
-                        background: isExpanded ? 'rgba(0, 240, 255, 0.03)' : 'transparent',
-                        transition: 'background 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isExpanded) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.015)';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isExpanded) e.currentTarget.style.background = 'transparent';
-                      }}
                     >
-                      <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#00f0ff' }}>
-                        {chk.package_name}
+                      <td>
+                        <button
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
+                          title="Toggle evidence output"
+                        >
+                          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        </button>
                       </td>
-                      <td style={{ padding: '12px 16px', fontWeight: 600, color: '#ffffff' }}>
-                        {chk.check_name}
+                      <td>
+                        <span className="font-mono" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {chk.check_name}
+                        </span>
                       </td>
-                      <td style={{ padding: '12px 16px' }}>
+                      <td>
+                        <span className="font-mono" style={{ fontSize: '0.78rem' }}>
+                          {chk.package_name}
+                        </span>
+                      </td>
+                      <td>
                         <StatusBadge status={chk.status} type="check" />
                       </td>
-                      <td style={{ padding: '12px 16px', color: '#cbd5e1', maxWidth: '360px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {chk.evidence}
+                      <td>
+                        <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                          {chk.evidence ? chk.evidence.slice(0, 80) : 'Evaluated in isolated sandbox'}
+                        </span>
                       </td>
-                      <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: '#64748b' }}>
-                        {chk.elapsed_seconds ? `${chk.elapsed_seconds.toFixed(2)}s` : '< 0.01s'}
+                      <td>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          {new Date(chk.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'right', color: '#94a3b8' }}>
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      <td>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '3px 8px', fontSize: '0.74rem' }}
+                            onClick={() => onNavigateDependency(chk.package_name)}
+                          >
+                            <span>Inspect</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
 
-                    {/* Expandable Log & Command Inspector */}
+                    {/* Expandable Evidence Output */}
                     {isExpanded && (
-                      <tr style={{ background: '#05070a', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                        <td colSpan={6} style={{ padding: '18px 24px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div>
-                              <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
-                                Substantive Evidence Finding:
-                              </span>
-                              <p style={{ fontSize: '0.85rem', color: '#e2e8f0', marginTop: '4px', lineHeight: 1.5 }}>
-                                {chk.evidence}
-                              </p>
-                            </div>
-
-                            {chk.command_executed && (
-                              <div>
-                                <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
-                                  Executed Shell Command:
-                                </span>
-                                <pre style={{
-                                  marginTop: '4px',
-                                  padding: '8px 12px',
-                                  borderRadius: '6px',
-                                  background: 'rgba(255, 255, 255, 0.02)',
-                                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                                  color: '#00f0ff',
-                                  fontFamily: 'var(--font-mono)',
-                                  fontSize: '0.78rem'
-                                }}>
-                                  {chk.command_executed}
-                                </pre>
-                              </div>
-                            )}
-
-                            {chk.error_details && (
-                              <div>
-                                <span style={{ fontSize: '0.75rem', color: '#f87171', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
-                                  Error / Limitation Log:
-                                </span>
-                                <pre style={{
-                                  marginTop: '4px',
-                                  padding: '8px 12px',
-                                  borderRadius: '6px',
-                                  background: 'rgba(239, 68, 68, 0.05)',
-                                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                                  color: '#fca5a5',
-                                  fontFamily: 'var(--font-mono)',
-                                  fontSize: '0.78rem'
-                                }}>
-                                  {chk.error_details}
-                                </pre>
-                              </div>
-                            )}
-
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '6px' }}>
-                              <button
-                                onClick={() => onNavigateDependency(chk.package_name)}
-                                className="btn btn-secondary"
-                                style={{ fontSize: '0.78rem', padding: '4px 12px' }}
-                              >
-                                View Dependency Analysis &rarr;
-                              </button>
-                            </div>
+                      <tr style={{ background: 'var(--bg-sidebar)' }}>
+                        <td colSpan={7} style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)' }}>
+                          <div style={{ fontSize: '0.74rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                            Evidence Payload (Sandbox Logs & Telemetry):
+                          </div>
+                          <div className="terminal-block" style={{ padding: '12px' }}>
+                            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                              {chk.evidence || chk.error_details || 'Evaluated with zero errors.'}
+                            </pre>
                           </div>
                         </td>
                       </tr>
@@ -408,10 +346,20 @@ export const VerificationCenterPage: React.FC<VerificationCenterPageProps> = ({
                   </React.Fragment>
                 );
               })}
+
+              {filteredChecks.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    No verification check records matching query.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-        )}
+        </div>
       </div>
     </div>
   );
 };
+
+export default VerificationCenterPage;

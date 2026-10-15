@@ -4,23 +4,22 @@ import {
   Download, 
   Copy, 
   Check, 
-  CheckSquare, 
-  Square, 
-  Sparkles, 
   FileText, 
   ArrowRight, 
   ShieldCheck, 
-  Play, 
-  FileCode,
-  Layers,
-  AlertTriangle,
   RotateCcw,
   ListChecks,
   Code2,
   Terminal,
-  BookOpen
+  BookOpen,
+  Sparkles,
+  Layers,
+  AlertTriangle,
+  FileCode2,
+  CheckCircle2
 } from 'lucide-react';
 import { CodeBlock } from '../components/CodeBlock';
+import { StatusBadge } from '../components/StatusBadge';
 import { getImplementationPlan } from '../api/client';
 
 interface ImplementationPlannerPageProps {
@@ -42,9 +41,8 @@ export const ImplementationPlannerPage: React.FC<ImplementationPlannerPageProps>
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Modes & Tabs
-  const [mode, setMode] = useState<'agent' | 'manual'>('agent');
-  const [activeTab, setActiveTab] = useState<'overview' | 'checklist' | 'prompt' | 'markdown'>('overview');
+  // Modes: 'document' | 'manual' | 'agent' | 'markdown'
+  const [mode, setMode] = useState<'document' | 'manual' | 'agent' | 'markdown'>('document');
   
   // Interactive checklist tracking
   const [checklistState, setChecklistState] = useState<Record<number, boolean>>({});
@@ -86,311 +84,443 @@ export const ImplementationPlannerPage: React.FC<ImplementationPlannerPageProps>
     setTimeout(() => setCopiedChecklist(false), 2200);
   };
 
-  if (loading) {
-    return <div style={{ maxWidth: '1000px', margin: '48px auto', textAlign: 'center', color: '#94a3b8' }}>Loading verified implementation plan...</div>;
-  }
+  const handleDownloadPrompt = () => {
+    const blob = new Blob([aiPrompt], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `migration_prompt_${packageName}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
-  if (error || !planData) {
+  if (loading) {
     return (
-      <div style={{ maxWidth: '800px', margin: '48px auto', padding: '24px' }} className="glass-panel">
-        <h2 style={{ color: '#ef4444', marginBottom: '8px' }}>Plan Unavailable</h2>
-        <p style={{ color: '#94a3b8', marginBottom: '16px' }}>{error}</p>
-        <button className="btn btn-secondary" onClick={onBack}><ArrowLeft size={16} /> Return to Dependency</button>
+      <div style={{ maxWidth: '1100px', margin: '48px auto', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+        Synthesizing verified implementation document...
       </div>
     );
   }
 
-  const checklist = planData.verification_checklist || [];
-  const completedChecksCount = Object.values(checklistState).filter(Boolean).length;
-  const filesChanged = planData.files_likely_to_change || [];
-  const orderedSteps = planData.ordered_implementation_steps || [];
+  if (error || !planData) {
+    return (
+      <div style={{ maxWidth: '700px', margin: '48px auto', padding: '24px' }} className="workbench-panel">
+        <h2 style={{ color: 'var(--status-fail-text)', marginBottom: '8px', fontSize: '1.1rem' }}>Plan Unavailable</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.85rem' }}>{error}</p>
+        <button className="btn btn-secondary" onClick={onBack}>
+          <ArrowLeft size={14} /> <span>Return to Dependency Detail</span>
+        </button>
+      </div>
+    );
+  }
+
+  const checklistItems = planData.verification_checklist || [];
+  const completedCount = Object.values(checklistState).filter(Boolean).length;
+  const progressPercent = checklistItems.length > 0 ? Math.round((completedCount / checklistItems.length) * 100) : 0;
 
   return (
-    <div style={{ maxWidth: '1160px', margin: '0 auto', padding: '32px 24px' }}>
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '28px 24px' }}>
       {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <button className="btn btn-secondary" onClick={onBack} style={{ fontSize: '0.82rem' }}>
-          <ArrowLeft size={15} /> Back to Details
-        </button>
-
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {/* Mode Switcher */}
-          <div style={{
-            display: 'flex',
-            background: 'rgba(12, 16, 24, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '8px',
-            padding: '3px',
-            gap: '3px'
-          }}>
-            <button
-              onClick={() => { setMode('agent'); setActiveTab('prompt'); }}
-              style={{
-                padding: '5px 12px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                color: mode === 'agent' ? '#05070d' : '#94a3b8',
-                background: mode === 'agent' ? '#00f0ff' : 'transparent',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <Sparkles size={13} /> AI Agent Mode
-            </button>
-            <button
-              onClick={() => { setMode('manual'); setActiveTab('checklist'); }}
-              style={{
-                padding: '5px 12px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                color: mode === 'manual' ? '#05070d' : '#94a3b8',
-                background: mode === 'manual' ? '#00f0ff' : 'transparent',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <ListChecks size={13} /> Manual Developer Mode
-            </button>
-          </div>
-
-          <a
-            href={`/api/scans/${scanId}/plan/${packageName}/download?format=md`}
-            download={`plan_${packageName}.md`}
-            className="btn btn-secondary"
-            style={{ fontSize: '0.82rem', padding: '6px 12px', textDecoration: 'none' }}
-          >
-            <Download size={14} /> Download MD
-          </a>
-
-          <button className="btn btn-cyan" onClick={onNavigatePostVerify} style={{ fontSize: '0.82rem', padding: '6px 14px' }}>
-            <Play size={14} fill="currentColor" /> Run Post-Verification <ArrowRight size={14} />
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        borderBottom: '1px solid var(--border-color)',
+        paddingBottom: '18px',
+        marginBottom: '20px',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button className="btn btn-secondary" onClick={onBack} style={{ padding: '6px 10px' }}>
+            <ArrowLeft size={14} /> <span>Back</span>
           </button>
-        </div>
-      </div>
-
-      {/* Title & Document Header Card */}
-      <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <span style={{
-                fontSize: '0.7rem',
-                fontFamily: 'var(--font-mono)',
-                color: '#34d399',
-                background: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                fontWeight: 700
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h1 style={{
+                fontSize: '1.35rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.02em',
+                fontFamily: 'var(--font-display)'
               }}>
-                DEVELOPER AUTHORIZED
-              </span>
-              <span style={{ fontSize: '0.72rem', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
-                Scan: {scanId}
+                Implementation Specification
+              </h1>
+              <span className="badge badge-executed">
+                {packageName} &rarr; {planData.candidate_replacement}
               </span>
             </div>
-
-            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
-              Migration Plan: {packageName} &rarr; {planData.candidate_package || 'replacement'}
-            </h1>
-            <p style={{ color: '#94a3b8', fontSize: '0.88rem', marginTop: '4px', maxWidth: '720px' }}>
-              {planData.objective || `Evidence-backed migration of ${packageName} to drop-in alternative ${planData.candidate_package}.`}
-            </p>
-          </div>
-
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Checklist Completion</div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#00f0ff', marginTop: '2px' }}>
-              {completedChecksCount} / {checklist.length}
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+              Scan: {scanId} | Acceptance Criteria Defined
             </div>
           </div>
         </div>
 
-        {/* Tab Strip */}
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          marginTop: '20px',
-          borderTop: '1px solid var(--border-color)',
-          paddingTop: '14px',
-          flexWrap: 'wrap'
-        }}>
-          <button
-            className={`btn ${activeTab === 'overview' ? 'btn-cyan' : 'btn-ghost'}`}
-            onClick={() => setActiveTab('overview')}
-            style={{ fontSize: '0.82rem', padding: '6px 14px' }}
-          >
-            <BookOpen size={14} /> Plan Overview
-          </button>
-          <button
-            className={`btn ${activeTab === 'checklist' ? 'btn-cyan' : 'btn-ghost'}`}
-            onClick={() => setActiveTab('checklist')}
-            style={{ fontSize: '0.82rem', padding: '6px 14px' }}
-          >
-            <ListChecks size={14} /> Interactive Checklist ({completedChecksCount}/{checklist.length})
-          </button>
-          <button
-            className={`btn ${activeTab === 'prompt' ? 'btn-cyan' : 'btn-ghost'}`}
-            onClick={() => setActiveTab('prompt')}
-            style={{ fontSize: '0.82rem', padding: '6px 14px' }}
-          >
-            <Sparkles size={14} /> AI Agent Prompt
-          </button>
-          <button
-            className={`btn ${activeTab === 'markdown' ? 'btn-cyan' : 'btn-ghost'}`}
-            onClick={() => setActiveTab('markdown')}
-            style={{ fontSize: '0.82rem', padding: '6px 14px' }}
-          >
-            <FileText size={14} /> Markdown Spec
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-primary" onClick={onNavigatePostVerify}>
+            <ShieldCheck size={14} /> <span>Post-Implementation Verification</span>
+            <ArrowRight size={13} />
           </button>
         </div>
       </div>
 
-      {/* TAB 1: PLAN OVERVIEW */}
-      {activeTab === 'overview' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Affected Files & Blast Radius */}
-          <div className="glass-panel" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#ffffff', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Code2 size={18} color="#00f0ff" /> AST-Identified Target Files ({filesChanged.length})
-            </h3>
-            <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '14px' }}>
-              Source files containing direct import statements or callable API sites mapped during AST static inspection.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {filesChanged.map((f: string, i: number) => (
-                <div key={i} style={{
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.8rem'
-                }}>
-                  <span style={{ color: '#00f0ff' }}>{f}</span>
-                  <span style={{ fontSize: '0.7rem', color: '#64748b' }}>AST Verified</span>
-                </div>
-              ))}
+      {/* Mode Navigation Bar */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: '1px solid var(--border-color)',
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            onClick={() => setMode('document')}
+            style={{
+              padding: '8px 14px',
+              background: mode === 'document' ? 'var(--bg-surface)' : 'transparent',
+              border: '1px solid',
+              borderColor: mode === 'document' ? 'var(--border-color) var(--border-color) transparent var(--border-color)' : 'transparent',
+              borderRadius: '5px 5px 0 0',
+              fontWeight: mode === 'document' ? 600 : 500,
+              fontSize: '0.82rem',
+              color: mode === 'document' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              marginBottom: '-1px'
+            }}
+          >
+            Engineering Plan
+          </button>
+          <button
+            onClick={() => setMode('agent')}
+            style={{
+              padding: '8px 14px',
+              background: mode === 'agent' ? 'var(--bg-surface)' : 'transparent',
+              border: '1px solid',
+              borderColor: mode === 'agent' ? 'var(--border-color) var(--border-color) transparent var(--border-color)' : 'transparent',
+              borderRadius: '5px 5px 0 0',
+              fontWeight: mode === 'agent' ? 600 : 500,
+              fontSize: '0.82rem',
+              color: mode === 'agent' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              marginBottom: '-1px'
+            }}
+          >
+            AI Agent Prompt Export
+          </button>
+          <button
+            onClick={() => setMode('manual')}
+            style={{
+              padding: '8px 14px',
+              background: mode === 'manual' ? 'var(--bg-surface)' : 'transparent',
+              border: '1px solid',
+              borderColor: mode === 'manual' ? 'var(--border-color) var(--border-color) transparent var(--border-color)' : 'transparent',
+              borderRadius: '5px 5px 0 0',
+              fontWeight: mode === 'manual' ? 600 : 500,
+              fontSize: '0.82rem',
+              color: mode === 'manual' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              marginBottom: '-1px'
+            }}
+          >
+            Manual Mode Checklist ({completedCount}/{checklistItems.length})
+          </button>
+          <button
+            onClick={() => setMode('markdown')}
+            style={{
+              padding: '8px 14px',
+              background: mode === 'markdown' ? 'var(--bg-surface)' : 'transparent',
+              border: '1px solid',
+              borderColor: mode === 'markdown' ? 'var(--border-color) var(--border-color) transparent var(--border-color)' : 'transparent',
+              borderRadius: '5px 5px 0 0',
+              fontWeight: mode === 'markdown' ? 600 : 500,
+              fontSize: '0.82rem',
+              color: mode === 'markdown' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              marginBottom: '-1px'
+            }}
+          >
+            Raw Plan Markdown
+          </button>
+        </div>
+
+        {mode === 'agent' && (
+          <div style={{ display: 'flex', gap: '8px', paddingBottom: '6px' }}>
+            <button className="btn btn-secondary" onClick={handleCopyPrompt} style={{ fontSize: '0.76rem', padding: '4px 10px' }}>
+              {copiedPrompt ? <Check size={12} color="var(--status-pass-text)" /> : <Copy size={12} />}
+              <span>{copiedPrompt ? 'Copied' : 'Copy Prompt'}</span>
+            </button>
+            <button className="btn btn-secondary" onClick={handleDownloadPrompt} style={{ fontSize: '0.76rem', padding: '4px 10px' }}>
+              <Download size={12} />
+              <span>Download .md</span>
+            </button>
+          </div>
+        )}
+
+        {mode === 'manual' && (
+          <div style={{ display: 'flex', gap: '8px', paddingBottom: '6px' }}>
+            <button className="btn btn-secondary" onClick={handleCopyChecklist} style={{ fontSize: '0.76rem', padding: '4px 10px' }}>
+              {copiedChecklist ? <Check size={12} color="var(--status-pass-text)" /> : <Copy size={12} />}
+              <span>{copiedChecklist ? 'Copied' : 'Copy Checklist'}</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Mode 1: Document View */}
+      {mode === 'document' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '24px', alignItems: 'start' }}>
+          {/* Narrow Plan Outline Sidebar */}
+          <div className="workbench-panel" style={{ padding: '14px', position: 'sticky', top: '70px' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              Plan Sections
             </div>
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.78rem' }}>
+              <a href="#section-objective" style={{ color: 'var(--text-secondary)', textDecoration: 'none', padding: '4px 6px', borderRadius: '4px' }}>
+                1. Objective & Scope
+              </a>
+              <a href="#section-files" style={{ color: 'var(--text-secondary)', textDecoration: 'none', padding: '4px 6px', borderRadius: '4px' }}>
+                2. Files to Modify
+              </a>
+              <a href="#section-steps" style={{ color: 'var(--text-secondary)', textDecoration: 'none', padding: '4px 6px', borderRadius: '4px' }}>
+                3. Ordered Migration Steps
+              </a>
+              <a href="#section-tests" style={{ color: 'var(--text-secondary)', textDecoration: 'none', padding: '4px 6px', borderRadius: '4px' }}>
+                4. Test Commands
+              </a>
+              <a href="#section-acceptance" style={{ color: 'var(--text-secondary)', textDecoration: 'none', padding: '4px 6px', borderRadius: '4px' }}>
+                5. Acceptance Criteria
+              </a>
+              <a href="#section-rollback" style={{ color: 'var(--text-secondary)', textDecoration: 'none', padding: '4px 6px', borderRadius: '4px' }}>
+                6. Rollback Fallback
+              </a>
+            </nav>
           </div>
 
-          {/* Ordered Implementation Steps */}
-          <div className="glass-panel" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#ffffff', marginBottom: '14px' }}>
-              Ordered Implementation Tasks
-            </h3>
-            <ol style={{ paddingLeft: '20px', color: '#cbd5e1', fontSize: '0.88rem', lineHeight: 1.8 }}>
-              {orderedSteps.map((s: string, i: number) => (
-                <li key={i} style={{ marginBottom: '6px' }}>{s}</li>
-              ))}
-            </ol>
-          </div>
+          {/* Central Implementation Document */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Objective & Scope */}
+            <div id="section-objective" className="workbench-panel" style={{ padding: '20px' }}>
+              <h2 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                1. Objective & Scope
+              </h2>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {planData.objective || `Safely migrate ${packageName} to verified replacement ${planData.candidate_replacement} while maintaining full test regression parity.`}
+              </p>
+            </div>
 
-          {/* Rollback Strategy */}
-          <div className="glass-panel" style={{ padding: '24px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fcd34d', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <RotateCcw size={18} color="#f59e0b" /> Automated Rollback Strategy
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: '#cbd5e1', lineHeight: 1.6 }}>
-              {planData.rollback_strategy || 'In the event of verification failure, execute `git restore .` to revert modified working copy source files and restore previous requirements pin.'}
-            </p>
+            {/* Files to Modify */}
+            <div id="section-files" className="workbench-panel" style={{ padding: '20px' }}>
+              <h2 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>
+                2. Files to Modify
+              </h2>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="workbench-table">
+                  <thead>
+                    <tr>
+                      <th>File Path</th>
+                      <th>Expected Modification</th>
+                      <th>Classification</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(planData.files_to_modify || []).map((f: any, i: number) => (
+                      <tr key={i}>
+                        <td>
+                          <span className="font-mono" style={{ fontWeight: 600 }}>{f.path}</span>
+                        </td>
+                        <td style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          {f.reason || 'Update imports and caller arguments'}
+                        </td>
+                        <td>
+                          <span className="badge badge-observed">Observed AST</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Ordered Migration Steps */}
+            <div id="section-steps" className="workbench-panel" style={{ padding: '20px' }}>
+              <h2 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>
+                3. Ordered Migration Steps
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {(planData.migration_steps || []).map((step: any, i: number) => (
+                  <div key={i} style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    padding: '10px 14px',
+                    background: 'var(--bg-app)',
+                    borderRadius: '5px',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    <span className="font-mono" style={{
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      fontSize: '0.85rem',
+                      minWidth: '22px'
+                    }}>
+                      {i + 1}.
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {step.title || step.step || step}
+                      </div>
+                      {step.details && (
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.5 }}>
+                          {step.details}
+                        </div>
+                      )}
+                    </div>
+                    <span className="badge badge-ai" style={{ fontSize: '0.68rem' }}>
+                      AI Suggested
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Test Commands */}
+            <div id="section-tests" className="workbench-panel" style={{ padding: '20px' }}>
+              <h2 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>
+                4. Test Commands
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {(planData.test_commands || ['python -m pytest tests/ -v']).map((cmd: string, i: number) => (
+                  <div key={i} className="terminal-block" style={{ padding: '10px 14px' }}>
+                    <code>$ {cmd}</code>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Acceptance Criteria */}
+            <div id="section-acceptance" className="workbench-panel" style={{ padding: '20px' }}>
+              <h2 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>
+                5. Acceptance Criteria
+              </h2>
+              <ul style={{ paddingLeft: '20px', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {(planData.acceptance_criteria || [
+                  'All unit tests pass with zero regressions.',
+                  'No unhandled deprecation warnings.',
+                  'Package pin updated in requirements.txt or pyproject.toml.'
+                ]).map((crit: string, i: number) => (
+                  <li key={i}>{crit}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Rollback Strategy */}
+            <div id="section-rollback" className="workbench-panel" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <RotateCcw size={15} color="var(--status-fail-text)" />
+                <h2 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  6. Rollback Fallback Plan
+                </h2>
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: '10px' }}>
+                If post-implementation tests fail or unexpected regressions occur, immediately execute:
+              </p>
+              <div className="terminal-block" style={{ padding: '10px 14px' }}>
+                <code>{planData.rollback_strategy?.command || 'git restore . && pip install -r requirements.txt'}</code>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* TAB 2: INTERACTIVE CHECKLIST (MANUAL DEVELOPER MODE) */}
-      {activeTab === 'checklist' && (
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+      {/* Mode 2: AI Agent Prompt View */}
+      {mode === 'agent' && (
+        <div className="workbench-panel" style={{ padding: '20px' }}>
+          <div style={{ marginBottom: '14px' }}>
+            <h2 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+              Coding Agent Execution Prompt
+            </h2>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+              Pass this structured prompt directly into your AI coding assistant (Cursor, Claude Code, Aider, Antigravity) to execute the migration with bounded scope.
+            </p>
+          </div>
+          <CodeBlock 
+            code={aiPrompt} 
+            language="markdown" 
+            title="ai_agent_prompt.md"
+            showLineNumbers={true}
+          />
+        </div>
+      )}
+
+      {/* Mode 3: Manual Implementation Mode */}
+      {mode === 'manual' && (
+        <div className="workbench-panel" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#ffffff' }}>
-                Verification & Execution Checklist
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.82rem' }}>
-                Follow steps sequentially and mark items as verified.
+              <h2 style={{ fontSize: '0.94rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                Interactive Implementation Checklist
+              </h2>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                Mark off items as you modify code and run local verification checks.
               </p>
             </div>
-            <button
-              onClick={handleCopyChecklist}
-              className="btn btn-secondary"
-              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
-            >
-              {copiedChecklist ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
-              {copiedChecklist ? 'Checklist Copied' : 'Copy Checklist'}
-            </button>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                {progressPercent}% Complete
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                {completedCount} of {checklistItems.length} items checked
+              </div>
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {checklist.map((c: any, i: number) => {
-              const isChecked = !!checklistState[i];
+            {checklistItems.map((chk: any, idx: number) => {
+              const isDone = Boolean(checklistState[idx]);
               return (
-                <div
-                  key={i}
+                <div 
+                  key={idx}
                   style={{
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '5px',
                     padding: '12px 16px',
-                    background: isChecked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                    border: `1px solid ${isChecked ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.05)'}`,
-                    borderRadius: '8px',
-                    transition: 'all 0.15s ease'
+                    background: isDone ? 'var(--status-pass-bg)' : 'var(--bg-app)',
+                    borderColor: isDone ? 'var(--status-pass-border)' : 'var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
                   }}
                 >
-                  <div 
-                    onClick={() => toggleCheck(i)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {isChecked ? (
-                      <CheckSquare size={18} color="#10b981" />
-                    ) : (
-                      <Square size={18} color="#64748b" />
-                    )}
-                    <span style={{
-                      fontSize: '0.86rem',
-                      color: isChecked ? '#e2e8f0' : '#cbd5e1',
-                      textDecoration: isChecked ? 'line-through' : 'none',
-                      flex: 1,
-                      fontWeight: isChecked ? 400 : 500
-                    }}>
-                      {c.item}
-                    </span>
-                    <span style={{
-                      fontSize: '0.68rem',
-                      fontFamily: 'var(--font-mono)',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      color: '#00f0ff'
-                    }}>
-                      {c.classification}
-                    </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input
+                      type="checkbox"
+                      checked={isDone}
+                      onChange={() => toggleCheck(idx)}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <span style={{
+                        fontSize: '0.84rem',
+                        fontWeight: 600,
+                        color: isDone ? 'var(--status-pass-text)' : 'var(--text-primary)',
+                        textDecoration: isDone ? 'line-through' : 'none'
+                      }}>
+                        {chk.item || chk}
+                      </span>
+                    </div>
+                    <StatusBadge status={chk.classification || 'EXECUTED'} />
                   </div>
 
-                  {/* Optional Step Note Input */}
-                  <div style={{ marginTop: '8px', paddingLeft: '30px' }}>
-                    <input
-                      type="text"
-                      className="input-field"
-                      placeholder="Add developer notes or test commands run for this step..."
-                      value={stepNotes[i] || ''}
-                      onChange={(e) => setStepNotes({ ...stepNotes, [i]: e.target.value })}
-                      style={{ fontSize: '0.76rem', padding: '4px 8px' }}
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Add developer notes or test observation..."
+                    style={{ fontSize: '0.74rem', padding: '4px 8px', background: 'var(--bg-surface)' }}
+                    value={stepNotes[idx] || ''}
+                    onChange={(e) => setStepNotes({ ...stepNotes, [idx]: e.target.value })}
+                  />
                 </div>
               );
             })}
@@ -398,44 +528,25 @@ export const ImplementationPlannerPage: React.FC<ImplementationPlannerPageProps>
         </div>
       )}
 
-      {/* TAB 3: AI CODING AGENT PROMPT */}
-      {activeTab === 'prompt' && (
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={16} color="#8b5cf6" /> Ready-to-Copy AI Coding Agent Directive
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.82rem' }}>
-                Engineered for Cursor, Claude Code, GitHub Copilot, and Gemini CLI. Instructs the agent to make verified edits without hallucinations.
-              </p>
-            </div>
-
-            <button className="btn btn-cyan" onClick={handleCopyPrompt} style={{ fontSize: '0.82rem', padding: '7px 16px' }}>
-              {copiedPrompt ? <Check size={15} /> : <Copy size={15} />}
-              {copiedPrompt ? 'Copied to Clipboard!' : 'Copy Prompt'}
-            </button>
-          </div>
-
-          <CodeBlock code={aiPrompt} language="markdown" title="AI Coding Agent Directive" />
-        </div>
-      )}
-
-      {/* TAB 4: MARKDOWN SPEC */}
-      {activeTab === 'markdown' && (
-        <div className="glass-panel" style={{ padding: '28px' }}>
-          <pre style={{
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
+      {/* Mode 4: Raw Markdown */}
+      {mode === 'markdown' && (
+        <div className="workbench-panel" style={{ padding: '20px' }}>
+          <div style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.84rem',
-            lineHeight: 1.65,
-            color: '#e2e8f0'
+            fontSize: '0.82rem',
+            lineHeight: 1.6,
+            whiteSpace: 'pre-wrap',
+            background: 'var(--bg-app)',
+            padding: '16px',
+            borderRadius: '4px',
+            border: '1px solid var(--border-color)'
           }}>
             {planMarkdown}
-          </pre>
+          </div>
         </div>
       )}
     </div>
   );
 };
+
+export default ImplementationPlannerPage;

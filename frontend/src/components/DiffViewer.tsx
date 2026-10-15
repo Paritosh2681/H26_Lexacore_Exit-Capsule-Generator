@@ -7,7 +7,7 @@ interface DiffViewerProps {
 export const DiffViewer: React.FC<DiffViewerProps> = ({ diffText }) => {
   if (!diffText || !diffText.trim()) {
     return (
-      <div style={{ padding: '16px', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>
+      <div style={{ padding: '16px', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.82rem' }}>
         No file differences detected.
       </div>
     );
@@ -17,28 +17,28 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ diffText }) => {
 
   return (
     <div style={{
-      background: '#070b12',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
-      borderRadius: '8px',
+      background: 'var(--code-bg)',
+      border: '1px solid var(--code-border)',
+      borderRadius: '5px',
       overflowX: 'auto',
       fontFamily: 'var(--font-mono)',
-      fontSize: '0.825rem',
-      lineHeight: 1.5,
+      fontSize: '0.8rem',
+      lineHeight: 1.55,
       padding: '8px 0'
     }}>
       {lines.map((line, idx) => {
         let bg = 'transparent';
-        let color = '#cbd5e1';
+        let color = 'var(--code-text)';
 
         if (line.startsWith('+') && !line.startsWith('+++')) {
-          bg = 'rgba(16, 185, 129, 0.15)';
-          color = '#6ee7b7';
+          bg = 'rgba(52, 211, 153, 0.12)';
+          color = 'var(--code-green)';
         } else if (line.startsWith('-') && !line.startsWith('---')) {
-          bg = 'rgba(239, 68, 68, 0.15)';
-          color = '#fca5a5';
+          bg = 'rgba(248, 113, 113, 0.12)';
+          color = 'var(--code-red)';
         } else if (line.startsWith('@@')) {
-          bg = 'rgba(99, 102, 241, 0.15)';
-          color = '#a5b4fc';
+          bg = 'rgba(149, 171, 167, 0.12)';
+          color = 'var(--code-amber)';
         }
 
         return (
@@ -47,7 +47,7 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ diffText }) => {
             style={{
               background: bg,
               color,
-              padding: '1px 16px',
+              padding: '2px 14px',
               whiteSpace: 'pre'
             }}
           >
@@ -58,3 +58,4 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ diffText }) => {
     </div>
   );
 };
+

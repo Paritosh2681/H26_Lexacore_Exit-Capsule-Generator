@@ -5,9 +5,15 @@ interface CodeBlockProps {
   code: string;
   language?: string;
   title?: string;
+  showLineNumbers?: boolean;
 }
 
-export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language = 'python', title }) => {
+export const CodeBlock: React.FC<CodeBlockProps> = ({ 
+  code, 
+  language = 'python', 
+  title,
+  showLineNumbers = false 
+}) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -16,11 +22,13 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language = 'python',
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const lines = code.split('\n');
+
   return (
     <div style={{
-      background: '#070b12',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
-      borderRadius: '8px',
+      background: 'var(--code-bg)',
+      border: '1px solid var(--code-border)',
+      borderRadius: '5px',
       overflow: 'hidden',
       margin: '8px 0'
     }}>
@@ -29,33 +37,72 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language = 'python',
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '6px 12px',
-        background: 'rgba(255, 255, 255, 0.03)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        fontSize: '0.75rem',
-        color: '#94a3b8'
+        background: 'var(--code-surface)',
+        borderBottom: '1px solid var(--code-border)',
+        fontSize: '0.72rem',
+        fontFamily: 'var(--font-mono)',
+        color: 'var(--code-muted)'
       }}>
         <span>{title || language}</span>
         <button
           onClick={handleCopy}
-          className="btn-secondary"
-          style={{ padding: '3px 8px', fontSize: '0.75rem', border: 'none', background: 'transparent' }}
+          style={{ 
+            padding: '2px 8px', 
+            fontSize: '0.72rem', 
+            border: 'none', 
+            background: 'transparent',
+            color: 'var(--code-muted)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
           title="Copy code"
         >
-          {copied ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? <Check size={12} color="#34D399" /> : <Copy size={12} />}
+          <span>{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
-      <pre style={{
+
+      <div style={{
         padding: '12px',
         margin: 0,
         overflowX: 'auto',
-        fontSize: '0.85rem',
+        fontSize: '0.82rem',
         fontFamily: 'var(--font-mono)',
-        color: '#e2e8f0',
+        color: 'var(--code-text)',
         lineHeight: 1.6
       }}>
-        <code>{code}</code>
-      </pre>
+        {showLineNumbers ? (
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <tbody>
+              {lines.map((line, idx) => (
+                <tr key={idx}>
+                  <td style={{
+                    width: '32px',
+                    color: 'var(--code-muted)',
+                    textAlign: 'right',
+                    paddingRight: '12px',
+                    userSelect: 'none',
+                    fontSize: '0.75rem',
+                    borderRight: '1px solid var(--code-border)'
+                  }}>
+                    {idx + 1}
+                  </td>
+                  <td style={{ paddingLeft: '12px', whiteSpace: 'pre' }}>
+                    {line}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            <code>{code}</code>
+          </pre>
+        )}
+      </div>
     </div>
   );
 };
+

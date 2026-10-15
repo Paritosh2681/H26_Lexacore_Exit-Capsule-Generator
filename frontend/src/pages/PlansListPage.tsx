@@ -4,11 +4,12 @@ import {
   ArrowRight, 
   CheckCircle2, 
   Download, 
-  Sparkles, 
   Calendar, 
   Layers, 
   AlertTriangle,
-  Play
+  Play,
+  RefreshCw,
+  FolderGit2
 } from 'lucide-react';
 import { listImplementationPlans, listScans } from '../api/client';
 import { ImplementationPlanSummary, ScanItem } from '../api/types';
@@ -58,167 +59,149 @@ export const PlansListPage: React.FC<PlansListPageProps> = ({
   }, [scanId]);
 
   return (
-    <div style={{ maxWidth: '1160px', margin: '0 auto', padding: '32px 24px' }}>
-      {/* Page Title */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '28px' }}>
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '28px 24px' }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        borderBottom: '1px solid var(--border-color)',
+        paddingBottom: '18px',
+        marginBottom: '20px',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              background: 'rgba(0, 240, 255, 0.1)',
-              border: '1px solid rgba(0, 240, 255, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FileCode size={22} color="#00f0ff" />
-            </div>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#ffffff' }}>
-              Implementation Plans
-            </h1>
-          </div>
-          <p style={{ color: '#94a3b8', fontSize: '0.88rem', marginTop: '6px' }}>
-            Developer-approved refactoring plans backed by AST call site mappings, sandbox verification receipts, and copyable coding-agent directives.
+          <h1 style={{
+            fontSize: '1.35rem',
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.02em',
+            fontFamily: 'var(--font-display)',
+            marginBottom: '2px'
+          }}>
+            Implementation Plans
+          </h1>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            Engineering migration specifications with rollback strategies and acceptance criteria.
           </p>
         </div>
 
-        <button 
-          onClick={fetchPlans}
-          className="btn btn-secondary"
-          style={{ fontSize: '0.82rem', padding: '7px 14px' }}
-        >
-          Refresh Plans
-        </button>
+        {/* Scan Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Scan:</span>
+          <select
+            value={scanId || ''}
+            onChange={(e) => onSelectScan(e.target.value)}
+            className="input-field font-mono"
+            style={{ width: 'auto', padding: '5px 10px', fontSize: '0.8rem' }}
+          >
+            {scans.map((s) => (
+              <option key={s.scan_id} value={s.scan_id}>
+                {s.repo_path.split(/[/\\]/).pop()} ({s.scan_id.slice(-6)})
+              </option>
+            ))}
+          </select>
+          <button className="btn btn-secondary" onClick={fetchPlans} title="Refresh plans" style={{ padding: '6px' }}>
+            <RefreshCw size={13} />
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px', color: '#94a3b8' }}>
+        <div className="workbench-panel" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
           Loading implementation plans...
         </div>
       ) : error ? (
-        <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5', borderRadius: '8px' }}>
+        <div style={{
+          padding: '12px 16px',
+          background: 'var(--status-fail-bg)',
+          border: '1px solid var(--status-fail-border)',
+          borderRadius: '5px',
+          color: 'var(--status-fail-text)',
+          fontSize: '0.84rem'
+        }}>
           {error}
         </div>
       ) : plans.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '48px', textAlign: 'center' }}>
-          <AlertTriangle size={32} color="#f59e0b" style={{ margin: '0 auto 12px' }} />
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#ffffff', marginBottom: '6px' }}>
+        <div className="workbench-panel" style={{ padding: '48px 24px', textAlign: 'center', maxWidth: '580px', margin: '0 auto' }}>
+          <FolderGit2 size={36} color="var(--border-dark)" style={{ margin: '0 auto 12px' }} />
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
             No Implementation Plans Generated Yet
           </h3>
-          <p style={{ fontSize: '0.88rem', color: '#94a3b8', maxWidth: '520px', margin: '0 auto 20px', lineHeight: 1.6 }}>
-            Implementation plans are unlocked after a developer explicitly reviews and approves a candidate migration proposal under <strong>Dependencies</strong>.
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: '16px' }}>
+            Implementation specifications are generated when you review and authorize migration proposals on a dependency detail page.
           </p>
           <button
-            onClick={() => {
-              if (scans.length > 0) {
-                window.location.hash = '#inventory';
-              } else {
-                onNavigateNewScan();
-              }
-            }}
-            className="btn btn-cyan"
-            style={{ fontSize: '0.85rem', padding: '8px 18px' }}
+            onClick={onNavigateNewScan}
+            className="btn btn-primary"
+            style={{ fontSize: '0.82rem' }}
           >
-            Review Dependencies & Approve Proposal &rarr;
+            <span>Start Analysis or Review Scanned Dependencies</span>
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px' }}>
-          {plans.map((p) => (
-            <div 
-              key={p.package_name}
-              className="glass-panel"
-              style={{
-                padding: '24px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                transition: 'border-color 0.2s, transform 0.2s'
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.9rem',
-                      fontWeight: 700,
-                      color: '#f87171'
-                    }}>
-                      {p.package_name}
-                    </span>
-                    <span style={{ color: '#64748b' }}>&rarr;</span>
-                    <span style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.9rem',
-                      fontWeight: 700,
-                      color: '#34d399'
-                    }}>
-                      {p.candidate_package}
-                    </span>
-                  </div>
-
-                  <span className="badge badge-pass" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
-                    AUTHORIZED
-                  </span>
-                </div>
-
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#ffffff', marginBottom: '8px' }}>
-                  {p.objective}
-                </h4>
-
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '8px',
-                  padding: '10px 0',
-                  margin: '12px 0',
-                  borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                  fontSize: '0.78rem',
-                  color: '#94a3b8',
-                  textAlign: 'center'
-                }}>
-                  <div>
-                    <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.95rem' }}>{p.files_count}</div>
-                    <div>Files</div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.95rem' }}>{p.steps_count}</div>
-                    <div>Steps</div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.95rem' }}>{p.checks_count}</div>
-                    <div>Checks</div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px' }}>
-                <a
-                  href={`/api/scans/${scanId}/plan/${p.package_name}/download?format=md`}
-                  download={`plan_${p.package_name}.md`}
-                  className="btn btn-ghost"
-                  style={{ fontSize: '0.78rem', padding: '6px 10px' }}
-                  title="Download Markdown plan"
-                >
-                  <Download size={14} /> MD
-                </a>
-
-                <button
-                  onClick={() => onOpenPlan(p.package_name)}
-                  className="btn btn-cyan"
-                  style={{ fontSize: '0.8rem', padding: '6px 14px' }}
-                >
-                  Open Plan Workspace <ArrowRight size={14} />
-                </button>
-              </div>
-            </div>
-          ))}
+        <div className="workbench-panel" style={{ overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="workbench-table">
+              <thead>
+                <tr>
+                  <th>Target Package</th>
+                  <th>Candidate Replacement</th>
+                  <th>Checklist Items</th>
+                  <th>Created Date</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plans.map((p) => (
+                  <tr 
+                    key={p.package_name}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => onOpenPlan(p.package_name)}
+                  >
+                    <td>
+                      <span className="font-mono" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {p.package_name}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="font-mono" style={{ fontWeight: 600, color: '#6D28D9' }}>
+                        {p.candidate_package}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                        {p.steps_count || p.checks_count || 5}
+                      </span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginLeft: '4px' }}>steps</span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                        {new Date(p.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="btn btn-primary"
+                          style={{ padding: '3px 8px', fontSize: '0.74rem' }}
+                          onClick={() => onOpenPlan(p.package_name)}
+                        >
+                          <span>Open Plan</span>
+                          <ArrowRight size={11} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
   );
 };
+
+export default PlansListPage;

@@ -1,7 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ArrowLeft, ExternalLink, ShieldCheck, Cpu, Play, CheckCircle2,
-  XCircle, AlertTriangle, Code, FileText, ArrowRight, Ban, Clock, Sparkles
+  ArrowLeft, 
+  ExternalLink, 
+  ShieldCheck, 
+  Play, 
+  CheckCircle2,
+  XCircle, 
+  AlertTriangle, 
+  Code, 
+  FileText, 
+  ArrowRight, 
+  Ban, 
+  Clock, 
+  Sparkles,
+  ChevronDown,
+  ChevronRight,
+  Terminal,
+  FileCode2,
+  AlertCircle
 } from 'lucide-react';
 import { getDependencyDetails, verifyDependency, recordApproval, createImplementationPlan } from '../api/client';
 import { DependencyDetail, VerificationReport } from '../api/types';
@@ -31,11 +47,13 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
   const [verifying, setVerifying] = useState(false);
   const [verificationReport, setVerificationReport] = useState<VerificationReport | null>(null);
   const [verError, setVerError] = useState<string | null>(null);
+  const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
 
   // Approval state
   const [approvalDecision, setApprovalDecision] = useState<'APPROVED' | 'REJECTED' | 'PENDING'>('PENDING');
   const [approvalNotes, setApprovalNotes] = useState('');
   const [approving, setApproving] = useState(false);
+  const [approvalMsg, setApprovalMsg] = useState<string | null>(null);
 
   const fetchDetails = async () => {
     try {
@@ -85,6 +103,8 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
       setApproving(true);
       await recordApproval(scanId, packageName, decision, approvalNotes);
       setApprovalDecision(decision);
+      setApprovalMsg(`Decision persisted: ${decision}`);
+      setTimeout(() => setApprovalMsg(null), 3000);
       fetchDetails();
     } catch (err: any) {
       alert(err.message);
@@ -99,367 +119,448 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
       await createImplementationPlan(scanId, packageName, cand);
       onOpenImplementationPlan(packageName);
     } catch (err: any) {
-      alert(err.message);
+      alert(`Plan creation error: ${err.message}`);
     }
   };
 
   if (loading) {
-    return <div style={{ maxWidth: '1000px', margin: '48px auto', textAlign: 'center', color: '#94a3b8' }}>Loading dependency details...</div>;
-  }
-
-  if (error || !detail) {
     return (
-      <div style={{ maxWidth: '800px', margin: '48px auto', padding: '24px' }} className="glass-panel">
-        <h2 style={{ color: '#ef4444', marginBottom: '8px' }}>Failed to Load Dependency</h2>
-        <p style={{ color: '#94a3b8', marginBottom: '16px' }}>{error}</p>
-        <button className="btn btn-secondary" onClick={onBack}><ArrowLeft size={16} /> Return to Results</button>
+      <div style={{ maxWidth: '1100px', margin: '48px auto', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+        Loading dependency telemetry and AST call-site map...
       </div>
     );
   }
 
-  const meta = detail.pypi_metadata;
+  if (error || !detail) {
+    return (
+      <div style={{ maxWidth: '700px', margin: '48px auto', padding: '24px' }} className="workbench-panel">
+        <h2 style={{ color: 'var(--status-fail-text)', marginBottom: '8px', fontSize: '1.1rem' }}>Package Analysis Unavailable</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.85rem' }}>{error || 'Not found.'}</p>
+        <button className="btn btn-secondary" onClick={onBack}>
+          <ArrowLeft size={14} /> <span>Return to Inventory</span>
+        </button>
+      </div>
+    );
+  }
+
+  const aiRec = detail.ai_recommendation;
+  const proposal = aiRec?.proposal;
+  const verChecks = detail.verification_checks || [];
+  const astLocations = detail.ast_usages || [];
+  const pypi = detail.pypi_metadata;
   const risk = detail.risk_breakdown;
-  const checks = detail.verification_checks || [];
-  const aiProposal = detail.ai_recommendation?.proposal;
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
-      {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <button className="btn btn-secondary" onClick={onBack}>
-          <ArrowLeft size={16} /> Back to Inventory
-        </button>
+    <div style={{ maxWidth: '1140px', margin: '0 auto', padding: '28px 24px' }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        borderBottom: '1px solid var(--border-color)',
+        paddingBottom: '18px',
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <StatusBadge status={approvalDecision} type="approval" />
-          {approvalDecision === 'APPROVED' && (
-            <button className="btn btn-primary" onClick={handleGeneratePlan}>
-              <FileText size={16} /> View Implementation Plan
-            </button>
-          )}
+          <button className="btn btn-secondary" onClick={onBack} style={{ padding: '6px 10px' }}>
+            <ArrowLeft size={14} /> <span>Inventory</span>
+          </button>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h1 style={{
+                fontSize: '1.35rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-mono)'
+              }}>
+                {packageName}
+              </h1>
+              <span className="badge badge-low" style={{ textTransform: 'none' }}>
+                {detail.declared_version || 'Undeclared'}
+              </span>
+              <RiskGauge score={detail.risk_score} level={risk?.level || 'LOW'} />
+            </div>
+            <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              Category: <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{detail.category}</span> | {astLocations.length} AST call site{astLocations.length === 1 ? '' : 's'} identified
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-secondary" onClick={handleGeneratePlan}>
+            <FileText size={14} /> <span>Implementation Plan</span>
+          </button>
         </div>
       </div>
 
-      {/* Package Header Card */}
-      <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 700 }}>{detail.package_name}</h1>
-              <span className="badge" style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#cbd5e1' }}>
-                {detail.category}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Section 1: Package Overview & Constraints */}
+        <div className="workbench-panel" style={{ padding: '20px' }}>
+          <div style={{ fontSize: '0.74rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+            1. Package Telemetry & Constraints
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', fontSize: '0.82rem' }}>
+            <div>
+              <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Declared Pin:</span>
+              <span className="font-mono" style={{ fontWeight: 600 }}>{detail.declared_version || 'None (Observed AST import)'}</span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Latest PyPI Version:</span>
+              <span className="font-mono" style={{ fontWeight: 600 }}>{pypi?.latest_version || 'Unavailable'}</span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>License:</span>
+              <span>{pypi?.license || 'Proprietary / Unknown'}</span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>PyPI Status:</span>
+              <span style={{ color: pypi?.is_yanked ? 'var(--status-fail-text)' : 'var(--status-pass-text)', fontWeight: 600 }}>
+                {pypi?.is_yanked ? 'Yanked release' : 'Active repository'}
               </span>
             </div>
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '6px', maxWidth: '700px' }}>
-              {meta?.summary || 'No package summary available on PyPI.'}
-            </p>
           </div>
 
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '4px' }}>Risk Score</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-              <RiskGauge score={detail.risk_score} level={risk?.level || 'LOW'} />
-              <StatusBadge status={risk?.level || 'LOW'} type="risk" />
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Metadata Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '16px',
-          marginTop: '20px',
-          paddingTop: '16px',
-          borderTop: '1px solid var(--border-color)',
-          fontSize: '0.85rem'
-        }}>
-          <div>
-            <span style={{ color: '#64748b', display: 'block' }}>Pinned Version:</span>
-            <span style={{ fontWeight: 600, color: '#f1f5f9', fontFamily: 'var(--font-mono)' }}>
-              {detail.declared_version || 'None (Unpinned)'}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: '#64748b', display: 'block' }}>Latest PyPI Version:</span>
-            <span style={{ fontWeight: 600, color: '#f1f5f9', fontFamily: 'var(--font-mono)' }}>
-              {meta?.latest_version || 'Not found'}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: '#64748b', display: 'block' }}>Python Requirement:</span>
-            <span style={{ fontWeight: 600, color: '#f1f5f9', fontFamily: 'var(--font-mono)' }}>
-              {meta?.requires_python || 'Unspecified'}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: '#64748b', display: 'block' }}>Yanked Status:</span>
-            <span style={{ fontWeight: 600, color: meta?.is_yanked ? '#ef4444' : '#10b981' }}>
-              {meta?.is_yanked ? `YANKED: ${meta.yanked_reason || 'Unspecified'}` : 'Clean (Not Yanked)'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Risk Evidence Breakdown */}
-      <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <AlertTriangle size={18} color="#f59e0b" /> Deterministic Risk Evidence Breakdown
-        </h2>
-
-        {risk?.factors && risk.factors.length > 0 ? (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-color)', color: '#94a3b8' }}>
-                <th style={{ padding: '8px 12px' }}>Factor</th>
-                <th style={{ padding: '8px 12px' }}>Score Contribution</th>
-                <th style={{ padding: '8px 12px' }}>Evidence / Rationale</th>
-              </tr>
-            </thead>
-            <tbody>
-              {risk.factors.map((f, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                  <td style={{ padding: '10px 12px', fontWeight: 600, color: '#f8fafc' }}>{f.name}</td>
-                  <td style={{ padding: '10px 12px', fontFamily: 'var(--font-mono)', color: '#f87171' }}>+{f.score}</td>
-                  <td style={{ padding: '10px 12px', color: '#94a3b8' }}>
-                    {f.description}
-                    {f.evidence && (
-                      <span style={{ display: 'block', fontSize: '0.75rem', color: '#6366f1', marginTop: '2px' }}>
-                        Ref: {f.evidence}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div style={{ color: '#10b981', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <CheckCircle2 size={16} /> No adverse risk flags detected for this dependency.
-          </div>
-        )}
-      </div>
-
-      {/* AST Code Usages Footprint */}
-      <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '1.15rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Code size={18} color="#38bdf8" /> AST Code Usage Footprint ({detail.ast_usages.length} sites)
-          </h2>
-        </div>
-
-        {detail.ast_usages.length === 0 ? (
-          <div style={{ color: '#94a3b8', fontSize: '0.875rem', fontStyle: 'italic' }}>
-            Zero direct AST call expressions or import references found in repository source files.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {detail.ast_usages.map((u, i) => (
-              <div key={i} style={{
-                background: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                padding: '12px 16px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', fontSize: '0.8rem' }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', color: '#a5b4fc', fontWeight: 600 }}>
-                    {u.file_path}:{u.line_number}
-                  </div>
-                  <div style={{ color: '#64748b' }}>
-                    Scope: <span style={{ color: '#cbd5e1' }}>{u.enclosing_scope || 'module'}</span>
-                  </div>
-                </div>
-
-                <div style={{ fontSize: '0.8rem', color: '#cbd5e1', marginBottom: '6px' }}>
-                  Expression: <code className="font-mono" style={{ color: '#38bdf8' }}>{u.call_expression || u.referenced_symbol || 'import'}</code>
-                </div>
-
-                {u.code_snippet && (
-                  <CodeBlock code={u.code_snippet} language="python" title={`Source Context: ${u.file_path}`} />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Gemma 4 Migration Recommendation */}
-      {aiProposal && (
-        <div className="glass-panel" style={{
-          padding: '24px',
-          marginBottom: '24px',
-          border: '1px solid rgba(168, 85, 247, 0.3)',
-          background: 'radial-gradient(ellipse at top right, rgba(168, 85, 247, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={18} color="#c084fc" /> Gemma 4 Migration Proposal
-            </h2>
-            <span className="badge badge-medium">
-              Difficulty: {aiProposal.estimated_migration_difficulty}
-            </span>
-          </div>
-
-          <div style={{ marginBottom: '16px', fontSize: '0.9rem', color: '#e2e8f0' }}>
-            <strong>Proposed Replacement:</strong> <span className="font-mono" style={{ color: '#c084fc', fontWeight: 700 }}>{aiProposal.candidate_replacement}</span>
-          </div>
-          <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginBottom: '16px' }}>
-            {aiProposal.risk_summary}
-          </p>
-
-          <div style={{ marginBottom: '16px' }}>
-            <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '8px' }}>Reasons for Recommendation:</h4>
-            <ul style={{ paddingLeft: '20px', fontSize: '0.85rem', color: '#94a3b8' }}>
-              {aiProposal.reasons.map((r, i) => <li key={i}>{r}</li>)}
-            </ul>
-          </div>
-
-          {aiProposal.expected_api_differences && aiProposal.expected_api_differences.length > 0 && (
-            <div>
-              <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '8px' }}>Expected API Differences:</h4>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)', color: '#94a3b8' }}>
-                    <th style={{ padding: '6px 10px', textAlign: 'left' }}>Original API</th>
-                    <th style={{ padding: '6px 10px', textAlign: 'left' }}>Replacement API</th>
-                    <th style={{ padding: '6px 10px', textAlign: 'left' }}>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {aiProposal.expected_api_differences.map((d, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', color: '#f87171' }}>{d.original_api}</td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', color: '#34d399' }}>{d.replacement_api}</td>
-                      <td style={{ padding: '8px 10px', color: '#94a3b8' }}>{d.notes}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {pypi?.yanked_reason && (
+            <div style={{
+              marginTop: '16px',
+              padding: '10px 14px',
+              background: 'var(--status-fail-bg)',
+              border: '1px solid var(--status-fail-border)',
+              borderRadius: '4px',
+              color: 'var(--status-fail-text)',
+              fontSize: '0.8rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <AlertTriangle size={15} />
+              <span>Yank Notice: {pypi.yanked_reason}</span>
             </div>
           )}
         </div>
-      )}
 
-      {/* Independent Verification Runner */}
-      <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShieldCheck size={18} color="#10b981" /> Independent 10-Point Verification Engine
-            </h2>
-            <p style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: '2px' }}>
-              Empirical checks run independently of the AI proposal to verify candidate availability and API compatibility.
-            </p>
+        {/* Section 2: Source Code AST Usage Map */}
+        <div className="workbench-panel" style={{ overflow: 'hidden' }}>
+          <div style={{
+            padding: '12px 18px',
+            background: 'var(--bg-sidebar)',
+            borderBottom: '1px solid var(--border-color)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Code size={15} color="var(--text-secondary)" />
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                2. Source Usage (AST Analysis)
+              </span>
+            </div>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+              {astLocations.length} symbol site{astLocations.length === 1 ? '' : 's'} across repository
+            </span>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Candidate package..."
-              value={candidatePackage}
-              onChange={(e) => setCandidatePackage(e.target.value)}
-              style={{ width: '180px', padding: '6px 10px', fontSize: '0.85rem' }}
-            />
-            <button
-              className="btn btn-primary"
-              onClick={handleRunVerification}
-              disabled={verifying}
-              style={{ fontSize: '0.85rem', padding: '7px 14px' }}
-            >
-              {verifying ? 'Verifying...' : 'Run Verification'}
-            </button>
-          </div>
+          {astLocations.length === 0 ? (
+            <div style={{ padding: '20px', color: 'var(--text-secondary)', fontSize: '0.82rem', fontStyle: 'italic' }}>
+              No AST call-sites or direct imports detected in scanned Python source files.
+            </div>
+          ) : (
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {astLocations.map((loc: any, idx: number) => (
+                <div key={idx} style={{
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '5px',
+                  background: 'var(--bg-app)',
+                  padding: '12px 16px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FileCode2 size={14} color="var(--accent-sage-dark)" />
+                      <span className="font-mono" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {loc.file_path}:{loc.line_number}
+                      </span>
+                      {loc.enclosing_scope && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                          in <code>{loc.enclosing_scope}()</code>
+                        </span>
+                      )}
+                    </div>
+                    <span className="badge badge-observed">Observed AST</span>
+                  </div>
+
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    Imported symbol: <code className="font-mono" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{loc.referenced_symbol || loc.imported_module || packageName}</code>
+                    {loc.import_alias && <span> (aliased as: <code>{loc.import_alias}</code>)</span>}
+                  </div>
+
+                  {loc.code_snippet && (
+                    <CodeBlock 
+                      code={loc.code_snippet} 
+                      language="python" 
+                      title={`${loc.file_path} (Line ${loc.line_number})`}
+                      showLineNumbers={true}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {verError && (
-          <div style={{ padding: '10px 14px', background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '16px' }}>
-            {verError}
+        {/* Section 3: AI Migration Proposal (Gemma 4) */}
+        <div className="workbench-panel" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={16} color="#6D28D9" />
+              <h3 style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                3. AI Proposal (Gemma 4 Migration Hypothesis)
+              </h3>
+            </div>
+            <span className="badge badge-ai">Hypothesis — Requires Verification</span>
           </div>
-        )}
 
-        {/* Checks Table */}
-        {checks.length === 0 ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-            Verification pipeline has not been executed yet for this package. Click "Run Verification" above.
+          {aiRec ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{
+                padding: '12px 16px',
+                background: 'var(--bg-sidebar)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '5px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    Proposed Drop-In Replacement:
+                  </div>
+                  <div className="font-mono" style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {aiRec.candidate_replacement}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="text"
+                    className="input-field font-mono"
+                    style={{ width: '160px', padding: '4px 8px', fontSize: '0.78rem' }}
+                    value={candidatePackage}
+                    onChange={(e) => setCandidatePackage(e.target.value)}
+                    placeholder="Candidate package"
+                  />
+                  <button 
+                    className="btn btn-primary"
+                    style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+                    onClick={handleRunVerification}
+                    disabled={verifying}
+                  >
+                    <Play size={12} />
+                    <span>{verifying ? 'Evaluating...' : 'Verify Candidate'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-primary)' }}>Migration Rationale:</span>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.55 }}>
+                  {proposal?.risk_summary || proposal?.reasons?.join('. ') || 'Direct drop-in replacement candidate with active maintenance.'}
+                </p>
+              </div>
+
+              {proposal?.proposed_migration_steps && proposal.proposed_migration_steps.length > 0 && (
+                <div>
+                  <span style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-primary)' }}>Recommended Migration Steps:</span>
+                  <ol style={{ paddingLeft: '18px', fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.6 }}>
+                    {proposal.proposed_migration_steps.map((st: string, i: number) => (
+                      <li key={i}>{st}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {proposal?.potential_compatibility_problems && proposal.potential_compatibility_problems.length > 0 && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'var(--status-warn-bg)',
+                  border: '1px solid var(--status-warn-border)',
+                  borderRadius: '4px',
+                  color: 'var(--status-warn-text)',
+                  fontSize: '0.78rem'
+                }}>
+                  <strong>Potential API Divergences:</strong> {proposal.potential_compatibility_problems.join('; ')}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', fontStyle: 'italic' }}>
+              No AI recommendation recorded. You can still evaluate any replacement package using the verification runner below.
+            </div>
+          )}
+        </div>
+
+        {/* Section 4: 10-Point Deterministic Verification Evidence */}
+        <div className="workbench-panel" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldCheck size={16} color="var(--accent-sage-dark)" />
+              <h3 style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                4. Verification Evidence (10-Point Compatibility Suite)
+              </h3>
+            </div>
+            {verChecks.length > 0 && (
+              <span className="badge badge-pass">
+                {verChecks.filter((c: any) => c.status === 'PASS').length} / {verChecks.length} Checks Passed
+              </span>
+            )}
           </div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-color)', color: '#94a3b8' }}>
-                <th style={{ padding: '8px 12px' }}>Check Step</th>
-                <th style={{ padding: '8px 12px' }}>Status</th>
-                <th style={{ padding: '8px 12px' }}>Evidence / Output</th>
-                <th style={{ padding: '8px 12px' }}>Limitations</th>
-              </tr>
-            </thead>
-            <tbody>
-              {checks.map((c, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                  <td style={{ padding: '10px 12px', fontWeight: 600 }}>{c.check_name}</td>
-                  <td style={{ padding: '10px 12px' }}><StatusBadge status={c.status} type="check" /></td>
-                  <td style={{ padding: '10px 12px', color: '#cbd5e1' }}>
-                    {c.evidence}
-                    {c.error_details && (
-                      <div style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '4px' }}>
-                        Error: {c.error_details}
+
+          {verError && (
+            <div style={{
+              padding: '10px 14px',
+              background: 'var(--status-fail-bg)',
+              border: '1px solid var(--status-fail-border)',
+              borderRadius: '4px',
+              color: 'var(--status-fail-text)',
+              fontSize: '0.8rem',
+              marginBottom: '14px'
+            }}>
+              {verError}
+            </div>
+          )}
+
+          {verChecks.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {verChecks.map((chk: any) => {
+                const isExpanded = expandedCheck === chk.check_name;
+                return (
+                  <div 
+                    key={chk.check_name}
+                    style={{
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '5px',
+                      background: 'var(--bg-app)',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <div 
+                      onClick={() => setExpandedCheck(isExpanded ? null : chk.check_name)}
+                      style={{
+                        padding: '10px 14px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {isExpanded ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
+                        <span className="font-mono" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {chk.check_name}
+                        </span>
+                      </div>
+                      <StatusBadge status={chk.status} type="check" />
+                    </div>
+
+                    {isExpanded && (
+                      <div style={{
+                        padding: '12px 16px',
+                        borderTop: '1px solid var(--border-color)',
+                        background: 'var(--bg-surface)',
+                        fontSize: '0.78rem'
+                      }}>
+                        <div style={{ color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                          Evidence output:
+                        </div>
+                        <div className="terminal-block" style={{ padding: '10px' }}>
+                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                            {chk.evidence || chk.error_details || 'Check passed with zero errors.'}
+                          </pre>
+                        </div>
                       </div>
                     )}
-                  </td>
-                  <td style={{ padding: '10px 12px', color: '#64748b', fontSize: '0.75rem' }}>{c.limitations || 'None'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Developer Review and Approval Card */}
-      <div className="glass-panel" style={{ padding: '24px' }}>
-        <h2 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '8px' }}>
-          Developer Review & Approval Gate
-        </h2>
-        <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '16px' }}>
-          Explicitly approve or reject the proposed migration. Implementation plans and patch generations remain locked until developer authorization is recorded.
-        </p>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ fontSize: '0.8rem', color: '#cbd5e1', display: 'block', marginBottom: '6px' }}>
-            Review Notes & Migration Directives (Optional):
-          </label>
-          <textarea
-            className="input-field"
-            rows={3}
-            placeholder="e.g., Verified API compatibility with team. Approved for httpx migration."
-            value={approvalNotes}
-            onChange={(e) => setApprovalNotes(e.target.value)}
-          />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', fontStyle: 'italic' }}>
+              Verification suite has not yet run for this dependency. Enter candidate replacement and click "Verify Candidate" to evaluate.
+            </div>
+          )}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              className="btn btn-success"
-              onClick={() => handleApproval('APPROVED')}
-              disabled={approving}
-            >
-              <CheckCircle2 size={16} /> Approve Migration
-            </button>
-            <button
-              className="btn btn-danger"
-              onClick={() => handleApproval('REJECTED')}
-              disabled={approving}
-            >
-              <XCircle size={16} /> Reject Proposal
-            </button>
+        {/* Section 5: Review & Approval Decision Box */}
+        <div className="workbench-panel" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+              5. Review Migration Proposal
+            </h3>
+            <StatusBadge status={approvalDecision} type="approval" />
           </div>
 
-          {approvalDecision === 'APPROVED' && (
-            <button className="btn btn-primary" onClick={handleGeneratePlan}>
-              Proceed to Implementation Planner <ArrowRight size={16} />
-            </button>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: '16px' }}>
+            Record an engineering decision for replacing <strong>{packageName}</strong> with <strong>{candidatePackage || 'unspecified'}</strong>.
+            Approval commits the proposal to the persistent capsule and authorizes implementation planning.
+          </p>
+
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
+              Engineering Reviewer Notes
+            </label>
+            <textarea
+              className="input-field"
+              rows={3}
+              placeholder="Record review notes, verification findings, or remaining acceptance conditions..."
+              value={approvalNotes}
+              onChange={(e) => setApprovalNotes(e.target.value)}
+            />
+          </div>
+
+          {approvalMsg && (
+            <div style={{
+              padding: '8px 12px',
+              background: 'var(--status-pass-bg)',
+              border: '1px solid var(--status-pass-border)',
+              borderRadius: '4px',
+              color: 'var(--status-pass-text)',
+              fontSize: '0.78rem',
+              marginBottom: '12px'
+            }}>
+              {approvalMsg}
+            </div>
           )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              Approval does not modify source code or bypass post-implementation verification.
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn btn-danger"
+                onClick={() => handleApproval('REJECTED')}
+                disabled={approving}
+              >
+                <Ban size={13} />
+                <span>Reject Proposal</span>
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => handleApproval('APPROVED')}
+                disabled={approving}
+              >
+                <CheckCircle2 size={13} />
+                <span>Approve Proposal</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
+export default DependencyDetailsPage;

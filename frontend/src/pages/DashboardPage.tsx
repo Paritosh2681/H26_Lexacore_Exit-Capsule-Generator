@@ -10,14 +10,16 @@ import {
   AlertTriangle,
   Layers,
   FileCode,
-  Sparkles,
   GitBranch,
   Terminal,
   Activity,
-  FolderSearch
+  Plus,
+  RefreshCw,
+  FolderGit2
 } from 'lucide-react';
 import { listScans, deleteScan, listImplementationPlans } from '../api/client';
-import { ScanItem } from '../api/types';
+import { ScanItem, ImplementationPlanSummary } from '../api/types';
+import { StatusBadge } from '../components/StatusBadge';
 
 interface DashboardPageProps {
   onNavigateNewScan: () => void;
@@ -35,7 +37,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onNavigatePlans
 }) => {
   const [scans, setScans] = useState<ScanItem[]>([]);
-  const [plansCount, setPlansCount] = useState<number>(0);
+  const [plans, setPlans] = useState<ImplementationPlanSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +48,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       setScans(data);
       if (data.length > 0) {
         listImplementationPlans(data[0].scan_id)
-          .then((p) => setPlansCount(p.length))
+          .then(setPlans)
           .catch(() => {});
       }
       setError(null);
@@ -73,212 +75,388 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     }
   };
 
-  const completedCount = scans.filter(s => s.status === 'completed').length;
-  const totalDepsAssessed = scans.reduce((acc, s) => acc + (s.summary?.total_dependencies || 0), 0);
+  const totalDependencies = scans.reduce((acc, s) => acc + (s.summary?.total_dependencies || 0), 0);
+  const completedScans = scans.filter(s => s.status === 'completed');
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
-      {/* Welcome & Overview Header */}
-      <div className="glass-panel" style={{
-        padding: '32px',
-        marginBottom: '32px',
-        background: 'linear-gradient(135deg, rgba(12, 16, 24, 0.95) 0%, rgba(19, 24, 36, 0.9) 100%)',
-        border: '1px solid rgba(0, 240, 255, 0.2)',
-        boxShadow: '0 0 30px rgba(0, 240, 255, 0.05)',
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '28px 24px' }}>
+      {/* Workspace Header */}
+      <div style={{
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
+        borderBottom: '1px solid var(--border-color)',
+        paddingBottom: '20px',
+        marginBottom: '24px',
         flexWrap: 'wrap',
-        gap: '24px'
+        gap: '16px'
       }}>
-        <div style={{ maxWidth: '680px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <span style={{
-              fontSize: '0.72rem',
-              fontFamily: 'var(--font-mono)',
-              color: '#00f0ff',
-              background: 'rgba(0, 240, 255, 0.1)',
-              border: '1px solid rgba(0, 240, 255, 0.3)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontWeight: 600
-            }}>
-              OVERVIEW // REPOSITORY INTELLIGENCE
-            </span>
-          </div>
-
-          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '8px', color: '#ffffff' }}>
-            Python Dependency Resilience & Exit Capsule Platform
+        <div>
+          <h1 style={{
+            fontSize: '1.45rem',
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.02em',
+            fontFamily: 'var(--font-display)',
+            marginBottom: '4px'
+          }}>
+            Workspace
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: '0.92rem', lineHeight: 1.6 }}>
-            Perform AST usage analysis, uncover maintenance rot, query Gemma 4 for migration candidates, and independently verify replacements in isolated virtual environments.
+          <p style={{
+            fontSize: '0.86rem',
+            color: 'var(--text-secondary)'
+          }}>
+            Review dependency risk, migration evidence, and outstanding implementation work.
           </p>
         </div>
 
-        <button
-          className="btn btn-cyan"
-          style={{ padding: '12px 24px', fontSize: '0.95rem' }}
-          onClick={onNavigateNewScan}
-        >
-          <Play size={18} fill="currentColor" /> Start Repository Scan
-        </button>
-      </div>
-
-      {/* Real Metric KPI Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: '16px',
-        marginBottom: '32px'
-      }}>
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.82rem' }}>
-            <Clock size={16} color="#00f0ff" /> Total Scanned Repos
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, marginTop: '8px', color: '#ffffff' }}>
-            {scans.length}
-          </div>
-        </div>
-
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.82rem' }}>
-            <CheckCircle2 size={16} color="#10b981" /> Completed Analyses
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, marginTop: '8px', color: '#34d399' }}>
-            {completedCount}
-          </div>
-        </div>
-
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.82rem' }}>
-            <Layers size={16} color="#38bdf8" /> Dependencies Evaluated
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, marginTop: '8px', color: '#ffffff' }}>
-            {totalDepsAssessed}
-          </div>
-        </div>
-
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.82rem' }}>
-            <FileCode size={16} color="#8b5cf6" /> Implementation Plans
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, marginTop: '8px', color: '#c4b5fd' }}>
-            {plansCount}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Scans Table Section */}
-      <div className="glass-panel" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff' }}>Repository Analyses History</h2>
-            <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
-              Historical scans recorded in local SQLite database.
-            </p>
-          </div>
-          <button className="btn btn-secondary" onClick={fetchScans} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
-            Refresh
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={fetchScans} 
+            title="Refresh workspace records"
+          >
+            <RefreshCw size={13} />
+            <span>Refresh</span>
+          </button>
+          <button 
+            className="btn btn-primary" 
+            onClick={onNavigateNewScan}
+          >
+            <Plus size={14} />
+            <span>Start Analysis</span>
           </button>
         </div>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: '#94a3b8' }}>
-            Loading scans...
-          </div>
-        ) : error ? (
-          <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5', borderRadius: '8px' }}>
-            {error}
-          </div>
-        ) : scans.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: '#94a3b8' }}>
-            <AlertTriangle size={32} color="#f59e0b" style={{ margin: '0 auto 12px auto' }} />
-            <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '6px' }}>No scans recorded yet</div>
-            <p style={{ fontSize: '0.875rem', marginBottom: '16px', maxWidth: '440px', margin: '0 auto 16px', lineHeight: 1.5 }}>
-              Scan a local Python repository to inspect dependencies, detect maintenance rot, and generate verified Exit Capsules.
-            </p>
-            <button className="btn btn-cyan" onClick={onNavigateNewScan}>
-              <Play size={16} /> Scan a Repository Now
-            </button>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color)', color: '#94a3b8', background: 'rgba(255, 255, 255, 0.02)' }}>
-                  <th style={{ padding: '12px 16px' }}>Scan ID</th>
-                  <th style={{ padding: '12px 16px' }}>Repository Path</th>
-                  <th style={{ padding: '12px 16px' }}>Status</th>
-                  <th style={{ padding: '12px 16px' }}>Dependencies</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scans.map((scan) => (
-                  <tr
-                    key={scan.scan_id}
-                    onClick={() => onOpenScan(scan.scan_id)}
-                    style={{
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s'
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#00f0ff' }}>
-                      {scan.scan_id}
-                    </td>
-                    <td style={{ padding: '14px 16px', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#ffffff' }}>
-                      {scan.repo_path}
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span className={`badge ${scan.status === 'completed' ? 'badge-pass' : scan.status === 'failed' ? 'badge-fail' : 'badge-inconclusive'}`}>
-                        {scan.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 16px', color: '#94a3b8' }}>
-                      {scan.summary?.total_dependencies || 0} evaluated
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '8px' }}>
-                        <button
-                          className="btn btn-secondary"
-                          style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenCapsule(scan.scan_id);
-                          }}
-                        >
-                          <FileText size={13} /> Capsule
-                        </button>
-                        <button
-                          className="btn btn-cyan"
-                          style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenScan(scan.scan_id);
-                          }}
-                        >
-                          Results <ArrowRight size={13} />
-                        </button>
-                        <button
-                          className="btn btn-danger"
-                          style={{ padding: '5px 8px', fontSize: '0.78rem' }}
-                          onClick={(e) => handleDelete(scan.scan_id, e)}
-                          title="Delete Scan"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
+
+      {error && (
+        <div style={{
+          padding: '12px 16px',
+          background: 'var(--status-fail-bg)',
+          border: '1px solid var(--status-fail-border)',
+          borderRadius: '5px',
+          color: 'var(--status-fail-text)',
+          fontSize: '0.84rem',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <AlertTriangle size={15} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Summary KPI Strip */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '12px',
+        marginBottom: '28px'
+      }}>
+        <div className="workbench-card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: '0.74rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.04em', marginBottom: '4px' }}>
+            Active Repositories
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+              {scans.length}
+            </span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              ({completedScans.length} verified)
+            </span>
+          </div>
+        </div>
+
+        <div className="workbench-card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: '0.74rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.04em', marginBottom: '4px' }}>
+            Dependencies Indexed
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+              {totalDependencies}
+            </span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              AST call-sites mapped
+            </span>
+          </div>
+        </div>
+
+        <div className="workbench-card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: '0.74rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.04em', marginBottom: '4px' }}>
+            Implementation Plans
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+              {plans.length}
+            </span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              with verification checklists
+            </span>
+          </div>
+        </div>
+
+        <div className="workbench-card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: '0.74rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.04em', marginBottom: '4px' }}>
+            Verification Suite
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+              10-Point
+            </span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--status-pass-text)' }}>
+              Deterministic Engine
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      {loading ? (
+        <div className="workbench-panel" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Loading workspace inventory...
+        </div>
+      ) : scans.length === 0 ? (
+        /* Empty State */
+        <div className="workbench-panel" style={{ padding: '56px 24px', textAlign: 'center', maxWidth: '640px', margin: '0 auto' }}>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: '6px',
+            background: 'var(--bg-sidebar)',
+            border: '1px solid var(--border-color)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '16px'
+          }}>
+            <FolderGit2 size={22} color="var(--accent-sage-dark)" />
+          </div>
+          <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px', fontFamily: 'var(--font-display)' }}>
+            No analyses in workspace
+          </h2>
+          <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+            Scan a local Python repository to discover dependencies, map AST call-sites, compute maintenance risk, and run independent verification checks.
+          </p>
+          <button className="btn btn-primary" onClick={onNavigateNewScan}>
+            <Plus size={14} />
+            <span>Start an Analysis</span>
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+          {/* Recent Analyses Section */}
+          <div className="workbench-panel" style={{ overflow: 'hidden' }}>
+            <div style={{
+              padding: '14px 18px',
+              borderBottom: '1px solid var(--border-color)',
+              background: 'var(--bg-sidebar)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <h2 style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                  Recent Repository Analyses
+                </h2>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                  {scans.length} repository scan{scans.length === 1 ? '' : 's'} recorded
+                </span>
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="workbench-table">
+                <thead>
+                  <tr>
+                    <th>Repository / Path</th>
+                    <th>Scan Identifier</th>
+                    <th>Dependencies</th>
+                    <th>Risk Profile</th>
+                    <th>Status</th>
+                    <th>Timestamp</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scans.map((scan) => {
+                    const repoName = scan.repo_path.split(/[/\\]/).pop() || scan.repo_path;
+                    const summary: any = scan.summary || {
+                      total_dependencies: 0,
+                      critical_risk_count: 0,
+                      high_risk_count: 0
+                    };
+
+                    return (
+                      <tr 
+                        key={scan.scan_id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => onOpenScan(scan.scan_id)}
+                      >
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <GitBranch size={14} color="#696B66" />
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                                {repoName}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                {scan.repo_path}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="font-mono" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {scan.scan_id.slice(-10)}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600 }}>{summary.total_dependencies}</span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '4px' }}>packages</span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                            {summary.critical_risk_count > 0 && (
+                              <span className="badge badge-critical">
+                                {summary.critical_risk_count} Critical
+                              </span>
+                            )}
+                            {summary.high_risk_count > 0 && (
+                              <span className="badge badge-high">
+                                {summary.high_risk_count} High
+                              </span>
+                            )}
+                            {summary.critical_risk_count === 0 && summary.high_risk_count === 0 && (
+                              <span className="badge badge-low">
+                                Clean / Low Risk
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{
+                            fontSize: '0.72rem',
+                            fontFamily: 'var(--font-mono)',
+                            padding: '2px 6px',
+                            borderRadius: '3px',
+                            background: scan.status === 'completed' ? '#F0FDF4' : '#FEFCE8',
+                            color: scan.status === 'completed' ? '#166534' : '#854D0E',
+                            border: `1px solid ${scan.status === 'completed' ? '#BBF7D0' : '#FEF08A'}`
+                          }}>
+                            {scan.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                            {new Date(scan.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                              onClick={() => onOpenScan(scan.scan_id)}
+                              title="Inspect Dependency Inventory"
+                            >
+                              <Layers size={12} />
+                              <span>Inspect</span>
+                            </button>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                              onClick={() => onOpenCapsule(scan.scan_id)}
+                              title="View Exit Capsule"
+                            >
+                              <FileText size={12} />
+                              <span>Capsule</span>
+                            </button>
+                            <button
+                              className="btn btn-danger"
+                              style={{ padding: '4px 6px' }}
+                              onClick={(e) => handleDelete(scan.scan_id, e)}
+                              title="Delete Scan"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Quick Access: Verification & Implementation Plans */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '16px' }}>
+            {/* Verification Center Shortcut */}
+            <div className="workbench-panel" style={{ padding: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={16} color="var(--accent-sage-dark)" />
+                  <h3 style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Independent Verification
+                  </h3>
+                </div>
+                {onNavigateVerification && scans.length > 0 && (
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ fontSize: '0.74rem', padding: '3px 8px' }}
+                    onClick={() => onNavigateVerification(scans[0].scan_id)}
+                  >
+                    <span>View Suite</span>
+                    <ArrowRight size={12} />
+                  </button>
+                )}
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '12px' }}>
+                Run deterministic 10-point compatibility evaluations: API equivalence, AST symbol presence, ephemeral test harnesses, and PyPI wheel validation.
+              </p>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <span className="badge badge-pass">API Compatibility</span>
+                <span className="badge badge-pass">Isolated venv</span>
+                <span className="badge badge-pass">Test Regression</span>
+                <span className="badge badge-not-run">Hash Sealing</span>
+              </div>
+            </div>
+
+            {/* Implementation Plans Shortcut */}
+            <div className="workbench-panel" style={{ padding: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FileCode size={16} color="var(--accent-sage-dark)" />
+                  <h3 style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Implementation Plans
+                  </h3>
+                </div>
+                {onNavigatePlans && scans.length > 0 && (
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ fontSize: '0.74rem', padding: '3px 8px' }}
+                    onClick={() => onNavigatePlans(scans[0].scan_id)}
+                  >
+                    <span>View Plans</span>
+                    <ArrowRight size={12} />
+                  </button>
+                )}
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '12px' }}>
+                Turn verified migration hypotheses into actionable engineering specifications with rollback strategies, AI agent prompts, and manual checklists.
+              </p>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <span className="badge badge-observed">{plans.length} Generated Plan{plans.length === 1 ? '' : 's'}</span>
+                <span className="badge badge-executed">Agent Prompt Export</span>
+                <span className="badge badge-ai">Rollback Fallbacks</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default DashboardPage;

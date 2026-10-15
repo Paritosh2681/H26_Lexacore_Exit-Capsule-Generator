@@ -39,6 +39,28 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'check'
     );
   }
 
+  if (s === 'OBSERVED') {
+    return (
+      <span className="badge badge-observed">
+        Observed
+      </span>
+    );
+  }
+  if (s === 'EXECUTED') {
+    return (
+      <span className="badge badge-executed">
+        Executed
+      </span>
+    );
+  }
+  if (s === 'AI_SUGGESTED' || s === 'AI SUGGESTED') {
+    return (
+      <span className="badge badge-ai">
+        AI Suggested
+      </span>
+    );
+  }
+
   // Verification Check types
   if (s === 'PASS' || s === 'PASSED' || s === 'VERIFIED') {
     return (
@@ -61,7 +83,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'check'
       </span>
     );
   }
-  if (s === 'AI_CLAIM_REJECTED') {
+  if (s === 'AI_CLAIM_REJECTED' || s === 'REJECTED') {
     return (
       <span className="badge badge-rejected">
         <Ban size={12} /> Claim Rejected
@@ -70,7 +92,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'check'
   }
   if (s === 'UNVERIFIED') {
     return (
-      <span className="badge badge-medium">
+      <span className="badge badge-not-run">
         <AlertCircle size={12} /> Unverified
       </span>
     );
@@ -82,3 +104,4 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'check'
     </span>
   );
 };
+

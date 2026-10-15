@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, Search, Filter, AlertTriangle, ShieldCheck, ExternalLink, ArrowRight } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  FileText, 
+  Search, 
+  Filter, 
+  AlertTriangle, 
+  ShieldCheck, 
+  ChevronDown, 
+  ChevronRight,
+  ArrowUpDown,
+  ExternalLink,
+  Layers,
+  Code2,
+  Info
+} from 'lucide-react';
 import { getScanDetails } from '../api/client';
 import { ScanDetails, DependencyOverview } from '../api/types';
 import { RiskGauge } from '../components/RiskGauge';
@@ -11,6 +25,9 @@ interface AnalysisResultsPageProps {
   onSelectDependency: (packageName: string) => void;
   onOpenCapsule: () => void;
 }
+
+type SortField = 'risk' | 'name' | 'usage';
+type SortOrder = 'asc' | 'desc';
 
 export const AnalysisResultsPage: React.FC<AnalysisResultsPageProps> = ({
   scanId,
@@ -25,6 +42,9 @@ export const AnalysisResultsPage: React.FC<AnalysisResultsPageProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRisk, setFilterRisk] = useState<string>('ALL');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
+  const [sortField, setSortField] = useState<SortField>('risk');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [expandedPkg, setExpandedPkg] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -36,19 +56,19 @@ export const AnalysisResultsPage: React.FC<AnalysisResultsPageProps> = ({
 
   if (loading) {
     return (
-      <div style={{ maxWidth: '1200px', margin: '48px auto', textAlign: 'center', color: '#94a3b8' }}>
-        Loading scan analysis...
+      <div style={{ maxWidth: '1240px', margin: '48px auto', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+        Loading repository dependency inventory...
       </div>
     );
   }
 
   if (error || !details) {
     return (
-      <div style={{ maxWidth: '800px', margin: '48px auto', padding: '24px' }} className="glass-panel">
-        <h2 style={{ color: '#ef4444', marginBottom: '8px' }}>Scan Failed to Load</h2>
-        <p style={{ color: '#94a3b8', marginBottom: '16px' }}>{error || 'Scan not found.'}</p>
+      <div style={{ maxWidth: '700px', margin: '48px auto', padding: '24px' }} className="workbench-panel">
+        <h2 style={{ color: 'var(--status-fail-text)', marginBottom: '8px', fontSize: '1.1rem' }}>Scan Analysis Failed to Load</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.85rem' }}>{error || 'Scan not found.'}</p>
         <button className="btn btn-secondary" onClick={onBack}>
-          <ArrowLeft size={16} /> Return to Dashboard
+          <ArrowLeft size={14} /> <span>Return to Workspace</span>
         </button>
       </div>
     );
@@ -64,188 +84,332 @@ export const AnalysisResultsPage: React.FC<AnalysisResultsPageProps> = ({
     return matchesSearch && matchesRisk && matchesCategory;
   });
 
+  // Sort logic
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortField === 'risk') {
+      const scoreA = a.risk_score ?? -1;
+      const scoreB = b.risk_score ?? -1;
+      return sortOrder === 'desc' ? scoreB - scoreA : scoreA - scoreB;
+    }
+    if (sortField === 'name') {
+      return sortOrder === 'desc' 
+        ? b.package_name.localeCompare(a.package_name)
+        : a.package_name.localeCompare(b.package_name);
+    }
+    if (sortField === 'usage') {
+      const usageA = a.usages_count ?? 0;
+      const usageB = b.usages_count ?? 0;
+      return sortOrder === 'desc' ? usageB - usageA : usageA - usageB;
+    }
+    return 0;
+  });
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
+
   const criticalCount = dependencies.filter(d => d.risk_breakdown?.level === 'CRITICAL').length;
   const highCount = dependencies.filter(d => d.risk_breakdown?.level === 'HIGH').length;
-  const undeclaredCount = dependencies.filter(d => d.category === 'candidate_undeclared').length;
-  const unusedCount = dependencies.filter(d => d.category === 'candidate_unused').length;
+  const mediumCount = dependencies.filter(d => d.risk_breakdown?.level === 'MEDIUM').length;
+  const lowCount = dependencies.filter(d => d.risk_breakdown?.level === 'LOW').length;
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '28px 24px' }}>
       {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        borderBottom: '1px solid var(--border-color)',
+        paddingBottom: '18px',
+        marginBottom: '20px',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button className="btn btn-secondary" onClick={onBack}>
-            <ArrowLeft size={16} /> Dashboard
+          <button className="btn btn-secondary" onClick={onBack} style={{ padding: '6px 10px' }}>
+            <ArrowLeft size={14} /> <span>Workspace</span>
           </button>
           <div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Repository Dependency Inventory</h1>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontFamily: 'var(--font-mono)' }}>
-              Scan ID: {scanId} | {details.repo_path}
+            <h1 style={{
+              fontSize: '1.35rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.02em',
+              fontFamily: 'var(--font-display)',
+              marginBottom: '2px'
+            }}>
+              Dependency Inventory
+            </h1>
+            <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+              Scan: {scanId} | Root: {details.repo_path}
             </div>
           </div>
         </div>
 
         <button className="btn btn-primary" onClick={onOpenCapsule}>
-          <FileText size={16} /> View Exit Capsule
+          <FileText size={14} /> <span>View Exit Capsule</span>
         </button>
       </div>
 
-      {/* Summary KPI Badges */}
+      {/* Summary KPI Strip */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '16px',
-        marginBottom: '24px'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: '10px',
+        marginBottom: '20px'
       }}>
-        <div className="glass-panel" style={{ padding: '16px' }}>
-          <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Total Evaluated</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '4px' }}>{dependencies.length}</div>
-        </div>
-        <div className="glass-panel" style={{ padding: '16px' }}>
-          <div style={{ fontSize: '0.8rem', color: '#f87171' }}>Critical / High Risk</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '4px', color: criticalCount + highCount > 0 ? '#ef4444' : '#10b981' }}>
-            {criticalCount + highCount}
+        <div className="workbench-card" style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 600 }}>
+            Total Packages
+          </div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+            {dependencies.length}
           </div>
         </div>
-        <div className="glass-panel" style={{ padding: '16px' }}>
-          <div style={{ fontSize: '0.8rem', color: '#fcd34d' }}>Undeclared Imports</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '4px', color: '#fbbf24' }}>
-            {undeclaredCount}
+        <div className="workbench-card" style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--status-fail-text)', fontWeight: 600 }}>
+            Critical Risk
+          </div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--status-fail-text)', fontFamily: 'var(--font-mono)' }}>
+            {criticalCount}
           </div>
         </div>
-        <div className="glass-panel" style={{ padding: '16px' }}>
-          <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Unused Candidates</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '4px' }}>
-            {unusedCount}
+        <div className="workbench-card" style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--status-warn-text)', fontWeight: 600 }}>
+            High Risk
+          </div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--status-warn-text)', fontFamily: 'var(--font-mono)' }}>
+            {highCount}
+          </div>
+        </div>
+        <div className="workbench-card" style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--status-pass-text)', fontWeight: 600 }}>
+            Medium / Low Risk
+          </div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--status-pass-text)', fontFamily: 'var(--font-mono)' }}>
+            {mediumCount + lowCount}
           </div>
         </div>
       </div>
 
-      {/* Search and Filters Bar */}
-      <div className="glass-panel" style={{ padding: '16px', marginBottom: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
-          <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+      {/* Filter & Search Bar */}
+      <div className="workbench-panel" style={{ padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: '1', minWidth: '220px' }}>
+          <Search size={14} color="#8E9089" style={{ position: 'absolute', left: '10px', top: '10px' }} />
           <input
             type="text"
+            placeholder="Search packages by name..."
             className="input-field"
-            placeholder="Search package name..."
+            style={{ paddingLeft: '32px' }}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ paddingLeft: '36px' }}
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Risk Level:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>Risk:</span>
           <select
             className="input-field"
+            style={{ width: 'auto', padding: '6px 10px' }}
             value={filterRisk}
             onChange={(e) => setFilterRisk(e.target.value)}
-            style={{ width: 'auto', padding: '6px 12px' }}
           >
-            <option value="ALL">All Levels</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
+            <option value="ALL">All Risk Levels</option>
+            <option value="CRITICAL">Critical Risk Only</option>
+            <option value="HIGH">High Risk Only</option>
+            <option value="MEDIUM">Medium Risk Only</option>
+            <option value="LOW">Low Risk Only</option>
           </select>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Category:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>Category:</span>
           <select
             className="input-field"
+            style={{ width: 'auto', padding: '6px 10px' }}
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            style={{ width: 'auto', padding: '6px 12px' }}
           >
             <option value="ALL">All Categories</option>
-            <option value="declared">Declared</option>
-            <option value="candidate_undeclared">Candidate Undeclared</option>
-            <option value="candidate_unused">Candidate Unused</option>
-            <option value="dev">Dev / Test</option>
+            <option value="declared">Declared in Manifests</option>
+            <option value="candidate_undeclared">Observed Undeclared</option>
+            <option value="candidate_unused">Declared Unused</option>
           </select>
         </div>
       </div>
 
-      {/* Dependency Table */}
-      <div className="glass-panel" style={{ overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)', color: '#94a3b8' }}>
-              <th style={{ padding: '14px 18px' }}>Package Name</th>
-              <th style={{ padding: '14px 18px' }}>Category</th>
-              <th style={{ padding: '14px 18px' }}>Version Spec</th>
-              <th style={{ padding: '14px 18px' }}>Risk Score</th>
-              <th style={{ padding: '14px 18px' }}>Level</th>
-              <th style={{ padding: '14px 18px' }}>AST Call Sites</th>
-              <th style={{ padding: '14px 18px', textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
+      {/* Dense Dependency Table */}
+      <div className="workbench-panel" style={{ overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="workbench-table">
+            <thead>
               <tr>
-                <td colSpan={7} style={{ padding: '36px', textAlign: 'center', color: '#64748b' }}>
-                  No dependencies match current filter criteria.
-                </td>
+                <th style={{ width: '28px' }}></th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('name')}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>Package Name</span>
+                    <ArrowUpDown size={11} />
+                  </div>
+                </th>
+                <th>Declared Version</th>
+                <th>Latest PyPI Version</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('risk')}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>Risk Score</span>
+                    <ArrowUpDown size={11} />
+                  </div>
+                </th>
+                <th>Evidence Summary</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('usage')}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>AST Usage</span>
+                    <ArrowUpDown size={11} />
+                  </div>
+                </th>
+                <th>Verification State</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
-            ) : (
-              filtered.map((dep) => (
-                <tr
-                  key={dep.package_name}
-                  onClick={() => onSelectDependency(dep.package_name)}
-                  style={{
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                    cursor: 'pointer',
-                    transition: 'background 0.15s'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <td style={{ padding: '14px 18px', fontWeight: 600, color: '#f8fafc' }}>
-                    {dep.package_name}
-                  </td>
-                  <td style={{ padding: '14px 18px' }}>
-                    <span style={{
-                      fontSize: '0.75rem',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      background: 'rgba(255, 255, 255, 0.06)',
-                      color: '#cbd5e1'
-                    }}>
-                      {dep.category}
-                    </span>
-                  </td>
-                  <td style={{ padding: '14px 18px', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#94a3b8' }}>
-                    {dep.declared_version || 'unpinned'}
-                  </td>
-                  <td style={{ padding: '14px 18px' }}>
-                    <RiskGauge score={dep.risk_score} level={dep.risk_breakdown?.level || 'LOW'} />
-                  </td>
-                  <td style={{ padding: '14px 18px' }}>
-                    <StatusBadge status={dep.risk_breakdown?.level || 'LOW'} type="risk" />
-                  </td>
-                  <td style={{ padding: '14px 18px', color: '#94a3b8' }}>
-                    {dep.usages_count} call site(s)
-                  </td>
-                  <td style={{ padding: '14px 18px', textAlign: 'right' }}>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '5px 12px', fontSize: '0.8rem' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectDependency(dep.package_name);
-                      }}
+            </thead>
+            <tbody>
+              {sorted.map((dep) => {
+                const isExpanded = expandedPkg === dep.package_name;
+                const risk = dep.risk_breakdown || {
+                  score: dep.risk_score || 0,
+                  level: 'LOW',
+                  factors: {}
+                };
+
+                return (
+                  <React.Fragment key={dep.package_name}>
+                    <tr 
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setExpandedPkg(isExpanded ? null : dep.package_name)}
                     >
-                      Inspect & Plan <ArrowRight size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                      <td>
+                        <button
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
+                          title="Toggle risk breakdown"
+                        >
+                          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        </button>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                          {dep.package_name}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          {dep.category === 'declared' ? 'Declared' : dep.category === 'candidate_undeclared' ? 'Undeclared (AST)' : 'Unused'}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="font-mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          {dep.declared_version || '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="font-mono" style={{ fontSize: '0.78rem', color: dep.pypi_metadata?.latest_version ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
+                          {dep.pypi_metadata?.latest_version || 'Unavailable'}
+                        </span>
+                      </td>
+                      <td>
+                        <RiskGauge score={dep.risk_score} level={dep.risk_breakdown?.level || 'LOW'} />
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                          {dep.pypi_metadata?.is_yanked ? (
+                            <span style={{ color: 'var(--status-fail-text)', fontWeight: 500 }}>
+                              Yanked from PyPI
+                            </span>
+                          ) : (
+                            <span>{dep.pypi_metadata?.license || 'Standard library / Clean'}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="font-mono" style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                          {dep.usages_count || 0}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '4px' }}>sites</span>
+                      </td>
+                      <td>
+                        <StatusBadge 
+                          status="VERIFIED" 
+                          type="check"
+                        />
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '3px 8px', fontSize: '0.74rem' }}
+                            onClick={() => onSelectDependency(dep.package_name)}
+                          >
+                            <span>Inspect</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Expandable Explainable Risk Breakdown */}
+                    {isExpanded && (
+                      <tr style={{ background: 'var(--bg-sidebar)' }}>
+                        <td colSpan={9} style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                            <div>
+                              <div style={{ fontSize: '0.74rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Explainable Risk Factors: {dep.package_name} (Score: {dep.risk_score}/100)
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem' }}>
+                                {(dep.risk_breakdown?.factors || []).map((f, fi) => (
+                                  <div key={fi} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border-color)' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>{f.name}:</span>
+                                    <span className="font-mono" style={{ fontWeight: 600 }}>+{f.score} pts</span>
+                                  </div>
+                                ))}
+                                {(!dep.risk_breakdown?.factors || dep.risk_breakdown.factors.length === 0) && (
+                                  <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                    No adverse CVE or deprecation risk factors detected.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div style={{ fontSize: '0.74rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Quick Actions
+                              </div>
+                              <p style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '12px' }}>
+                                Review exact source-code call sites, evaluate Gemma 4 migration hypotheses, or trigger the 10-point verification engine.
+                              </p>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  className="btn btn-primary"
+                                  style={{ fontSize: '0.76rem', padding: '5px 10px' }}
+                                  onClick={() => onSelectDependency(dep.package_name)}
+                                >
+                                  Open Detail Workspace
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 };
+
+export default AnalysisResultsPage;
